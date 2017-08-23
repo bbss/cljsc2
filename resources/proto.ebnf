@@ -1,0 +1,82 @@
+(* https://github.com/Shimuuar/protobuf/blob/master/protobuf.ebnf *)
+
+proto  ::= ( message | extend | enum | import | package | option | syntax | ";" )*
+
+syntax ::= "syntax" "=" strLit ";"
+
+import ::= "import" strLit ";"
+
+package ::= "package" ident ";"
+
+option ::= "option" optionBody ";"
+
+optionBody ::= ident ( "." ident )* "=" constant
+
+message ::= <"message"> ident messageBody
+
+extend ::= <"extend"> userType messageBody
+
+enum ::= <"enum"> ident <"{"> ( option | enumField | ";" )* <"}">
+
+enumField ::= ident <"="> intLit <";">
+
+service ::= "service" ident "{" ( option | rpc | ";" )* "}"
+
+rpc ::= "rpc" ident "(" userType ")" "returns" "(" userType ")" ";"
+
+<messageBody> ::= <"{"> ( field | enum | oneof | message | extend | extensions | group | option | ":" )* <"}">
+
+group ::= modifier "group" camelIdent <"="> intLit messageBody
+
+field ::= modifier type ident <"="> intLit ( "[" fieldOption ( "," fieldOption )* "]" )? <";">
+
+fieldOption ::= optionBody | "default" "=" constant
+
+extensions ::= "extensions" intLit "to" ( intLit | "max" ) ";"
+
+<modifier> ::= "required" | "optional" | "repeated"
+
+<type> ::= userType | "double" | "float" | "int32" | "int64" | "uint32" | "uint64" | "sint32" | "sint64" | "fixed32" | "fixed64" | "sfixed32" | "sfixed64" | "bool" | "string" | "bytes"
+
+userType ::= ( "."? ident )+
+
+constant ::= ident | intLit | floatLit | strLit | boolLit
+
+<ident> ::= #"[A-Za-z_][A-Za-z0-9_]*"
+
+camelIdent ::= #"[A-Z]\\w_]*"
+
+<intLit> ::= decInt | hexInt | octInt
+
+<decInt> ::= #"\d+"
+
+<hexInt> ::= #"0[xX]([A-Fa-f0-9])+"
+
+<octInt> ::= #"0[0-7]+"
+
+floatLit ::= #"\d+(\.\d+)?([Ee][\+-]?\d+)?"
+
+boolLit ::= "true" | "false"
+
+
+letter = #"[A-z]"
+decimalDigit = "0" "1" "2" "3" "4" "5" "6" "7" "8" "9"
+octalDigit   = "0" "1" "2" "3" "4" "5" "6" "7"
+hexDigit     = "0" "1" "2" "3" "4" "5" "6" "7" "8" "9" | "A" "B" "C" "D" "E" "F" "G" "H" "I" "J" "K" "L" "M" "N" "O" "P" "Q" "R" "S" "T" "U" "V" "W" "X" "Y" "Z"  | "a" "b" "c" "d" "e" "f" "g" "h" "i" "j" "k" "l" "m" "n" "o" "p" "q" "r" "s" "t" "u" "v" "w" "x" "y" "z"
+
+
+
+strLit = ( "'" { charValue } "'" ) |  ( '"' { charValue } '"' )
+charValue = letter | hexEscape | octEscape | charEscape |  #"[0-9]" | "."
+hexEscape = '\\' ( "x" | "X" ) hexDigit hexDigit
+octEscape = '\\' octalDigit octalDigit octalDigit
+charEscape = '\\' ( "a" | "b" | "f" | "n" | "r" | "t" | "v" | '\\' | "'" | '"' )
+quote = "'" | '"'
+
+oneofName = ident
+fieldName = ident
+fieldNumber = intLit
+fieldOptions = fieldOption { ","  fieldOption }
+
+oneof = "oneof" oneofName "{" { oneofField | ";" } "}"
+oneofField = type fieldName "=" fieldNumber [ "[" fieldOptions "]" ] ";"
