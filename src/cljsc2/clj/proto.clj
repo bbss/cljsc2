@@ -3,7 +3,10 @@
             [hara.string.case :as casing]
             [clojure.spec.alpha :as spec]
             [clojure.spec.gen.alpha :as gen]
-            [clojure.test.check]))
+            [clojure.test.check]
+            )
+  (:use flatland.protobuf.core
+        lucid.mind))
 
 (def proto-parser (insta/parser "/Users/baruchberger/stah/cljsc2/resources/proto.ebnf" :auto-whitespace :standard))
 
@@ -31,7 +34,7 @@
    "string" string?
    "uint32" pos-int?})
 
-(defn try-find-class-name [st]
+(defn try-find-class-cased [st]
   (->> (clojure.string/split st #"(?<=[a-zA-Z])(?=\d)|(?<=\d)(?=[a-zA-Z])")
        (map clojure.string/capitalize)
        (clojure.string/join)))
@@ -48,9 +51,9 @@
         item-type (if (vector? item-type)
                     (second item-type)
                     item-type)]
-    {(keyword (str package "." file-name "." item-name)
+    {(keyword (str package "." file-name "$" item-name)
               (casing/spear-case one-of-item-name))
-     {:spec `(spec/def ~(keyword (str package "." file-name "." item-name)
+     {:spec `(spec/def ~(keyword (str package "." file-name "$" item-name)
                                  (casing/spear-case one-of-item-name))
                ~(if repeated
                   `(spec/coll-of ~(or (field-type->spec item-type)
@@ -75,7 +78,7 @@
   (let [one-of-name (second (nth body-item 2))
         one-of-options (drop-last (subvec body-item 4))
         options (reduce (fn [acc option]
-                          (let [spec-name (keyword (str package "." file-name "." item-name)
+                          (let [spec-name (keyword (str package "." file-name "$" item-name)
                                                    (casing/spear-case (second
                                                                        (nth option 2))))
                                 spec-type (if (vector? (second option))
@@ -89,9 +92,9 @@
                         {}
                         one-of-options)]
     (merge
-     {(keyword (str package "." file-name "." item-name)
+     {(keyword (str package "." file-name "$" item-name)
                (casing/spear-case one-of-name))
-      {:spec`(spec/def ~(keyword (str package "." file-name "." item-name)
+      {:spec`(spec/def ~(keyword (str package "." file-name "$" item-name)
                                  (casing/spear-case one-of-name))
                (spec/keys :opt ~(into [] (keys options))))
        :attribute-of-root true}}
@@ -143,10 +146,6 @@
     :enum (merge env (process-enum item-type item-name item-body package file-name))
     (update-in env [:not-found package file-name item-name] (fn [nf] (conj nf item-type)))))
 
-(read-protos "/Users/baruchberger/stah/cljsc2/resources/proto/"
-                     "sc2api"
-                     {})
-(gen/sample (spec/gen :SC2APIProtocol.sc2api/Request))
 (defn read-protos [path file-name env]
   (let [parsed-proto (-> (str path file-name ".proto")
                          slurp
@@ -157,29 +156,101 @@
                                (filter (comp #{:package} first))
                                first
                                ((fn [pkg] (nth pkg 2))))]
-    ;;(for [proto-item (subvec (vec (filter (comp #{:message} first) proto-items)) 0 10)]
     (reduce (fn [env proto-item]
               (read-proto-item proto-item package-namespace path file-name env))
             env
             proto-items
             )))
 
-(defn doto-form [spec-def]
-  "Creates a function that maps keynames to java methods for the specs builders. Needs to be partially applied because directly passing complex java obj to eval didn't work"
-  (->>
-   (str
-    "(partial (fn [new-builder] (doto new-builder"
-    (clojure.string/join
-     (map (fn [[clss value]]
-            (str "(.set"
-                 ((comp casing/camel-case clojure.string/capitalize name) clss)
-                 " \""
-                 value
-                 "\")"))
-          spec-def))
-    ")))")
-   read-string
-   ))
+(read-protos "/Users/baruchberger/stah/cljsc2/resources/proto/"
+             "sc2api"
+             {})
+(comment
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api/Response ( clojure.spec.alpha/keys :opt ( :SC2APIProtocol.sc2api$Response/status :SC2APIProtocol.sc2api$Response/error ) :req ( :SC2APIProtocol.sc2api$Response/response ) ) )
 
-(comment(doto-form #:SC2APIProtocol.sc2api.Request{:request #:SC2APIProtocol.sc2api.Request{:step #:SC2APIProtocol.sc2api.RequestStep{:count 10}}})
-        (use 'lucid.mind))
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api$Response/status :SC2APIProtocol.sc2api/Status )
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api/Status #{ "in_game" "init_game" "ended" "launched" "quit"})
+
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api$Response/error ( clojure.spec.alpha/coll-of string? ) )
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api$Response/response ( clojure.spec.alpha/keys :opt [:SC2APIProtocol.sc2api$Response/step ] ) )
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api$Response/step :SC2APIProtocol.sc2api/ResponseStep )
+  ( clojure.spec.alpha/def :SC2APIProtocol.sc2api/ResponseStep ( clojure.spec.alpha/keys :opt () :req () ) )
+  (nth (gen/sample (spec/gen :SC2APIProtocol.sc2api/Response)) 8))
+
+(defn str-invoke [instance method-str & args]
+  (clojure.lang.Reflector/invokeInstanceMethod
+   instance
+   method-str
+   (to-array args)))
+
+(defn create-builder [for-path-key]
+  (let [split-path (clojure.string/split (namespace for-path-key) #"\.")
+        [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
+        builder-java-string (str "("
+                                 (clojure.string/join "." (drop-last split-path))
+                                 "."
+                                 (str (try-find-class-cased java-namespace) "$" java-class)
+                                 "/newBuilder"
+                                 ")")]
+    (-> builder-java-string
+        read-string
+        eval)))
+
+(defn hasMember [o member]
+  (> (count (.? o member)) 0))
+
+(defn resolve-without-class [spec-key]
+  (let [split-path (clojure.string/split (namespace spec-key) #"\.")
+        [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
+        java-string (str (clojure.string/join "." (drop-last split-path))
+                         "."
+                         (str (try-find-class-cased java-namespace) "$" (try-find-class-cased (name spec-key)))
+                         )]
+    (resolve (symbol java-string))))
+
+(defn make-protobuf
+  ([spec-obj] (make-protobuf spec-obj nil))
+  ([spec-obj ns-key]
+   (let [for-ns-key (ffirst spec-obj)
+         b (create-builder (or for-ns-key ns-key))]
+     (doall
+      (map (fn [[spec-key obj]]
+             [spec-key (make-protobuf spec-key obj b)])
+           spec-obj))
+     (.build b)))
+  ([spec-key spec-obj proto-builder]
+   (cond
+     (= (type spec-obj) clojure.lang.PersistentArrayMap)
+     (doall
+      (map
+       (fn [[spec-key value]]
+         (str-invoke proto-builder
+                     (str "set" (try-find-class-cased (name spec-key)))
+                     (make-protobuf value (if (empty? value)
+                                            (keyword (str (namespace spec-key) (try-find-class-cased (name spec-key))) "x")
+                                            spec-key))))
+       spec-obj))
+     (coll? spec-obj)
+     (let [class-name (try-find-class-cased (name spec-key))]
+       (doall
+        (map (fn [part] (str-invoke proto-builder
+                                   (str "add" (try-find-class-cased (name spec-key)))
+                                   part))
+             spec-obj)))
+     :else (let [class-name (try-find-class-cased (name spec-key))]
+             (try
+               (str-invoke
+                proto-builder
+                (str "set" class-name)
+                spec-obj)
+               (catch Exception e (str-invoke
+                                   proto-builder
+                                   (str "set" class-name)
+                                   (clojure.lang.Reflector/invokeStaticMethod
+                                    (resolve-without-class spec-key)
+                                    "valueOf"
+                                    (to-array [spec-obj])))))))))
+
+
+(protobuf-load (protodef SC2APIProtocol.Sc2Api$Response)
+               (.toByteArray (make-protobuf #:SC2APIProtocol.sc2api$Response{:response #:SC2APIProtocol.sc2api$Response{:step {}}, :status "init_game", :error ["" "" "qvlf9Gj" "O47G" "09S4" "u" "" "6" "H" "Zt9w2" "HB0" "oh" "pG48C8p" "iMD7" "4c0" "9j" "ub2aj0" "i3dl14"]})))

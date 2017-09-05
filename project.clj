@@ -15,7 +15,8 @@
                  [im.chit/lucid.mind "1.3.13"]
                  [instaparse "1.4.7"]
                  [org.clojure/test.check "0.10.0-alpha2"]
-                 [im.chit/hara.string.case "2.5.10"]]
+                 [im.chit/hara.string.case "2.5.10"]
+                 [im.chit/hara.zip "2.5.10"]]
 
   :plugins [[lein-figwheel "0.5.12"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
