@@ -3,6 +3,9 @@
         [clojure.java.shell :only [sh]]
         lucid.mind)
   (:require
+   [clojure.spec.alpha :as spec]
+   [clojure.spec.gen.alpha :as gen]
+   [clojure.test.check]
    [flatland.protobuf.schema :only [field-schema]]
    [flatland.useful.fn :only [fix]]
    [clojure.java.io :only [input-stream output-stream]]
@@ -93,4 +96,33 @@
                                .build
                                .toByteArray))))
 
-(send-request connection join-game-request)
+(comment
+  (clojure.spec.alpha/conform
+   :SC2APIProtocol.sc2api/Request
+   #:SC2APIProtocol.sc2api$Request
+   {:request #:SC2APIProtocol.sc2api$RequestJoinGame
+    {:join-game {:participation #:SC2APIProtocol.sc2api$RequestJoinGame{:race "Random"}}}})
+
+  (send-request
+   connection
+   (protobuf-load
+    Request
+    (.toByteArray
+     (cljsc2.clj.proto/make-protobuf
+      #:SC2APIProtocol.sc2api$Request
+      {:request #:SC2APIProtocol.sc2api$RequestCreateGame
+       {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
+        {:map #:SC2APIProtocol.sc2api$RequestCreateGame{:local-map {:map-path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}}
+         :player-setup [#:SC2APIProtocol.sc2api$PlayerSetup{:race "Zerg" :type "Participant"}]}}}))))
+
+  (send-request
+   connection
+   (protobuf-load
+    Request
+    (.toByteArray
+     (cljsc2.clj.proto/make-protobuf
+      #:SC2APIProtocol.sc2api$Request
+      {:request #:SC2APIProtocol.sc2api$RequestJoinGame
+       {:join-game
+        {:participation
+         #:SC2APIProtocol.sc2api$RequestJoinGame{:race "Random" :options {}}}}})))))

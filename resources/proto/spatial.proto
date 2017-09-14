@@ -14,6 +14,7 @@ message ObservationFeatureLayer {
   optional FeatureLayersMinimap minimap_renders = 2;
 }
 
+
 message FeatureLayers {
   optional ImageData height_map = 1;                // uint8. Terrain height. World space units of [-200, 200] encoded into [0, 255].
   optional ImageData visibility_map = 2;            // uint8. 0=Hidden, 1=Fogged, 2=Visible, 3=FullHidden
