@@ -16,7 +16,11 @@
                  [instaparse "1.4.7"]
                  [org.clojure/test.check "0.10.0-alpha2"]
                  [im.chit/hara.string.case "2.5.10"]
-                 [im.chit/hara.zip "2.5.10"]]
+                 [im.chit/hara.zip "2.5.10"]
+                 [me.raynes/conch "0.8.0"]
+                 [manifold "0.1.6"]
+                 [com.grammarly/perseverance "0.1.2"]
+                 [metosin/spec-tools "0.4.0-SNAPSHOT"]]
 
   :plugins [[lein-figwheel "0.5.12"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]

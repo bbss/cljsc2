@@ -4,6 +4,7 @@
             [clojure.spec.alpha :as spec]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test.check]
+            [spec-tools.core :as spec-t]
             )
   (:use flatland.protobuf.core
         lucid.mind))
@@ -40,6 +41,9 @@
    "float" float?
    "bool" boolean?})
 
+(def namespaces
+  ["common" "debug" "spatial" "query" "sc2api" "data" "error" "raw" "score" "ui"])
+
 (defn try-find-class-cased [st]
   (->> (clojure.string/split st #"(?<=[a-zA-Z])(?=\d)|(?<=\d)(?=[a-zA-Z])")
        (map clojure.string/capitalize)
@@ -59,13 +63,18 @@
 (defn get-spec
   ([item-type]
    (field-type->spec item-type))
-  ([item-type item-body package file-name class-name]
+  ([item-type item-body package file-name class-name env]
    (or (get-spec item-type)
        (contains-enum-spec item-type item-body package file-name class-name)
+       (resolve-existing-spec-kw
+        (keyword (str package "." file-name)
+                 item-type)
+        env
+        namespaces)
        (keyword (str package "." file-name)
                 item-type))))
 
-(defn process-message-field [package file-name item-name body-item item-body]
+(defn process-message-field [package file-name item-name body-item item-body env]
   (let [optional (some #{"optional"} body-item)
         repeated (some #{"repeated"} body-item)
         field-name (if (or optional repeated)
@@ -82,8 +91,8 @@
      {:spec `(spec/def ~(keyword (str package "." file-name "$" item-name)
                                  (casing/spear-case field-name))
                ~(if repeated
-                  `(spec/coll-of ~(get-spec item-type item-body package file-name item-name))
-                  (get-spec item-type item-body package file-name item-name)))
+                  `(spec/coll-of ~(get-spec item-type item-body package file-name item-name env))
+                  (get-spec item-type item-body package file-name item-name env)))
       :optional optional
       :repeated repeated}}))
 
@@ -120,12 +129,12 @@
        :attribute-of-root true}}
      options)))
 
-(defn process-message [item-type item-name item-body package path file-name]
+(defn process-message [item-type item-name item-body package path file-name env]
   (let [message-body-items-specs
         (for [body-item item-body]
           (let [[type message-name & body-items] body-item]
             (case type
-              :field (process-message-field package file-name item-name body-item item-body)
+              :field (process-message-field package file-name item-name body-item item-body env)
               :enum (process-message-enum message-name package file-name body-item item-name)
               :oneof (process-message-oneof package file-name item-name body-item)
               :item-body-not-recognized)))
@@ -163,7 +172,7 @@
                               (map (fn [char-or-letter] (second (second char-or-letter))))
                               clojure.string/join)
                          env)
-    :message (merge env (process-message item-type item-name item-body package path file-name))
+    :message (merge env (process-message item-type item-name item-body package path file-name env))
     :enum (merge env (process-enum item-type item-name item-body package file-name))
     (update-in env [:not-found package file-name item-name] (fn [nf] (conj nf item-type)))))
 
@@ -213,30 +222,30 @@
       (catch Exception e (when (not (empty? (rest namespaces)))
                            (try-eval-spec kw k v (rest namespaces)))))))
 
-(def namespaces
-  ["common" "debug" "spatial" "query" "sc2api" "data" "error" "raw" "score" "ui"])
-
 (defn replace-last-kw [spec kw]
   (concat (drop-last spec)
           [(concat (drop-last (last spec)) [kw])])) ;;could use walk/zipper
 
 (doall
- (map (fn [[k v]]
-        (let [kw (nth (:spec v) 2)
-                is-kw (keyword? kw)
-                coll-of-kw (and (not is-kw) (sequential? kw) (not (= (nth kw 1) :opt)) (nth kw 1))
-                is-coll-of-kw (keyword? coll-of-kw)]
-            (try (eval (if is-kw
-                         `(do ~(:spec (get specs kw))
-                              ~(:spec v))
-                         (let [found-spec-kw (resolve-existing-spec-kw coll-of-kw specs namespaces)]
-                           (if is-coll-of-kw
-                             `(do ~(:spec (get specs found-spec-kw))
-                                  ~(replace-last-kw (:spec v) found-spec-kw))
-                             (:spec v)))))
-                 ;;try catch hack because no namespace info in .proto
-                 (catch Exception e (try-eval-spec kw k v namespaces)))))
-      specs))
+ (map
+  (fn [[k v]]
+    (let [kw (nth (:spec v) 2)
+          is-kw (keyword? kw)
+          coll-of-kw (and (not is-kw) (sequential? kw) (not (= (nth kw 1) :opt)) (nth kw 1))
+          is-coll-of-kw (keyword? coll-of-kw)]
+      (try (eval (:spec v))
+           (catch Exception e
+             (try (eval (if is-kw
+                          `(do ~(:spec (get specs kw))
+                               ~(:spec v))
+                          (let [found-spec-kw (resolve-existing-spec-kw coll-of-kw specs namespaces)]
+                            (if is-coll-of-kw
+                              `(do ~(:spec (get specs found-spec-kw))
+                                   ~(replace-last-kw (:spec v) found-spec-kw))
+                              (:spec v)))))
+                  ;;try catch hack because no namespace info in .proto
+                  (catch Exception e (try-eval-spec kw k v namespaces)))))))
+  specs))
 
 (defn str-invoke [instance method-str & args]
   (clojure.lang.Reflector/invokeInstanceMethod
@@ -245,10 +254,7 @@
    (to-array args)))
 
 (defn create-builder [for-path-key]
-  (try
-    (builder-for-spec-key-with-attribute for-path-key)
-    (catch Exception e
-      (let [split-path (clojure.string/split (namespace for-path-key) #"\.")
+  (let [split-path (clojure.string/split (namespace for-path-key) #"\.")
             [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
             builder-java-string (str "("
                                      (clojure.string/join "." (drop-last split-path))
@@ -258,25 +264,37 @@
                                      ")")]
         (-> builder-java-string
             read-string
-            eval)))))
+            eval)))
 
 (defn builder-for-spec-key-with-attribute [spec-key]
-   (let [for-spec (-> (get specs spec-key)
-             :spec
-             last)
-         split-path (clojure.string/split (namespace for-spec) #"\.")
-         [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
-         java-string (str (clojure.string/join "." (drop-last split-path))
-                          "."
-                          (str (try-find-class-cased java-namespace)
-                               "$"
-                               ((comp casing/camel-case clojure.string/capitalize)
-                                (casing/spear-case (name for-spec))))
-                          )]
-     (clojure.lang.Reflector/invokeStaticMethod
-      (resolve (symbol java-string))
-      "newBuilder"
-      (to-array []))))
+  (let [for-spec (-> (get specs spec-key)
+                     :spec
+                     last)
+        split-path (clojure.string/split (namespace for-spec) #"\.")
+        [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
+        java-string (str (clojure.string/join "." (drop-last split-path))
+                         "."
+                         (str (try-find-class-cased java-namespace)
+                              "$"
+                              ((comp casing/camel-case clojure.string/capitalize)
+                               (casing/spear-case (name for-spec))))
+                         )]
+    (try
+      (clojure.lang.Reflector/invokeStaticMethod
+       (resolve (symbol java-string))
+       "newBuilder"
+       (to-array []))
+      (catch Error e
+        (let [alternative-classname (str (clojure.string/join "." (drop-last split-path))
+                                         "."
+                                         (str (try-find-class-cased java-namespace)
+                                              "$"
+                                              (name for-spec))
+                                         )]
+          (clojure.lang.Reflector/invokeStaticMethod
+           (resolve (symbol alternative-classname))
+           "newBuilder"
+           (to-array [])))))))
 
 (defn hasMember [o member]
   (> (count (.? o member)) 0))
@@ -358,63 +376,81 @@
                                      is-kw (keyword? kw)]
                                  (if is-kw kw spec-key))))))
 
-(defn make-protobuf
-  "Function to create protobufs from any namespaced object, uses the generated specs of the specs atom. Not nice code, but functional and will revisit later."
-  ([spec-obj]
-   (make-protobuf (ffirst spec-obj) spec-obj))
-  ([spec-key spec-obj]
-   (let [b (create-builder spec-key)]
-     (cond
-       (map? spec-obj)
-       (doall (map (fn [[child-spec-key spec-val]]
-                     (let [setters (.? b (re-pattern
-                                          (str "set"
-                                               (class-camel-case-name child-spec-key))))
-                           has-setter (not (empty? setters))]
-                       (cond
-                         (and (map? spec-val)
-                              (empty? spec-val))
-                         nil
-                         (and (not (map? spec-val))
-                              (coll? spec-val))
-                         (doall (map (fn [child-spec-obj]
-                                       (let [built-val (cond
-                                                         (and (not (string? child-spec-obj))
-                                                              (map? child-spec-obj)
-                                                              (empty? child-spec-obj))
-                                                         (let [kw (resolve-existing-spec-kw
-                                                                   (find-spec child-spec-key)
-                                                                   specs namespaces)
-                                                               found-kw (resolve-without-class kw)]
-                                                           (.build
-                                                            (clojure.lang.Reflector/invokeStaticMethod
-                                                             found-kw
-                                                             "newBuilder"
-                                                             (to-array []))))
-                                                         (not (coll? child-spec-obj)) child-spec-obj
-                                                         (ffirst child-spec-obj) (make-protobuf child-spec-obj)
-                                                         :else :no-resp)]
-                                         (str-invoke-method "add" b child-spec-key built-val)))
-                                     spec-val))
-                         (and (map? spec-val) (not has-setter))
-                         (doall (map (fn [[map-spec-key map-spec-val]]
-                                       (let [set-kw (if has-setter
-                                                      spec-key
-                                                      map-spec-key)]
-                                         (if (map? map-spec-val)
-                                           (str-invoke-method "set" b set-kw
-                                                              (make-protobuf map-spec-key map-spec-val))
-                                           (str-invoke-method "set" b set-kw map-spec-val)
-                                           )))
-                                     spec-val))
-                         :else (str-invoke-method "set" b child-spec-key (if (map? spec-val)
-                                                                           (make-protobuf spec-val)
-                                                                           spec-val)))))
-                   spec-obj))
-       :else (str-invoke-method "set" b spec-key spec-obj))
-     (.build b))))
 
-(comment (protobuf-load
-          (protodef SC2APIProtocol.Sc2Api$ResponseData)
-          (.toByteArray (make-protobuf #:SC2APIProtocol.sc2api$ResponseData{:units [#:SC2APIProtocol.data$UnitTypeData{:unit-id 2, :name "", :attributes ["Psionic" "Armored" "Psionic" "Heroic" "Mechanical" "Summoned" "Light" "Hover" "Structure" "Heroic" "Psionic" "Heroic" "Massive" "Summoned" "Heroic" "Mechanical" "Mechanical"]}]})))
-)
+(defn make-protobuf
+   "Function to create protobufs from any namespaced object, uses the generated specs of the specs atom. Not nice code, but functional and will revisit later."
+   ([spec-obj]
+    (make-protobuf (ffirst spec-obj) spec-obj false))
+   ([spec-key spec-obj is-one-of]
+    (let [b (if is-one-of
+              (try (builder-for-spec-key-with-attribute spec-key)
+                   (catch Exception e (create-builder spec-key)))
+              (create-builder spec-key))]
+      (cond
+        (map? spec-obj)
+        (doall (map (fn [[child-spec-key spec-val]]
+                      (let [setters (.? b (str "set"
+                                                (class-camel-case-name child-spec-key)))
+                            has-setter (not (empty? setters))]
+                        (cond
+                          (and (map? spec-val)
+                               (empty? spec-val))
+                          nil
+                          (and (not (map? spec-val))
+                               (coll? spec-val))
+                          (doall (map (fn [child-spec-obj]
+                                        (let [built-val (cond
+                                                          (and (not (string? child-spec-obj))
+                                                               (map? child-spec-obj)
+                                                               (empty? child-spec-obj))
+                                                          (let [kw (resolve-existing-spec-kw
+                                                                    (find-spec child-spec-key)
+                                                                    specs namespaces)
+                                                                found-kw (resolve-without-class kw)]
+                                                            (.build
+                                                             (clojure.lang.Reflector/invokeStaticMethod
+                                                              found-kw
+                                                              "newBuilder"
+                                                              (to-array []))))
+                                                          (not (coll? child-spec-obj)) child-spec-obj
+                                                          (ffirst child-spec-obj) (make-protobuf child-spec-obj)
+                                                          :else :no-resp)]
+                                          (str-invoke-method "add" b child-spec-key built-val)))
+                                      spec-val))
+                          (and (map? spec-val) (not has-setter))
+                          (doall (map (fn [[map-spec-key map-spec-val]]
+                                        (let [set-kw (if has-setter
+                                                       spec-key
+                                                       map-spec-key)]
+                                          (if (map? map-spec-val)
+                                            (str-invoke-method "set" b set-kw
+                                                               (try (make-protobuf (ffirst map-spec-val) map-spec-val (not has-setter))
+                                                                    (catch Exception e (make-protobuf map-spec-key map-spec-val (not has-setter)))))
+                                            (str-invoke-method "set" b set-kw map-spec-val)
+                                            )))
+                                      spec-val))
+                          :else (str-invoke-method "set" b child-spec-key (if (map? spec-val)
+                                                                            (make-protobuf spec-val)
+                                                                            spec-val)))))
+                    spec-obj))
+        :else (str-invoke-method "set" b spec-key spec-obj))
+      (.build b))))
+
+
+(make-protobuf
+ #:SC2APIProtocol.sc2api$Request
+ {:request #:SC2APIProtocol.sc2api$RequestAction
+  {:action #:SC2APIProtocol.sc2api$RequestAction
+   {:actions
+    [#:SC2APIProtocol.sc2api$Action
+     {:action-raw #:SC2APIProtocol.raw$ActionRaw
+      {:action #:SC2APIProtocol.raw$ActionRaw
+       {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
+        {:target #:SC2APIProtocol.raw$ActionRawUnitCommand
+         {:target-world-space-pos #:SC2APIProtocol.common$Point2D
+          {:x 0 :y 0}}
+         :ability-id 16
+         :queue-command false}}}}]}}})
+
+(.?(SC2APIProtocol.Sc2Api$Request/newBuilder))
+(.?(SC2APIProtocol.Sc2Api$RequestAction/newBuilder))
