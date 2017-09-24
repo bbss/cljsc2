@@ -18,16 +18,19 @@
                  [im.chit/hara.string.case "2.5.10"]
                  [im.chit/hara.zip "2.5.10"]
                  [me.raynes/conch "0.8.0"]
-                 [manifold "0.1.6"]
                  [com.grammarly/perseverance "0.1.2"]
-                 [metosin/spec-tools "0.4.0-SNAPSHOT"]]
+                 [metosin/spec-tools "0.4.0-SNAPSHOT"]
+                 [com.cognitect/transit-cljs "0.8.239"]
+                 [cljs-ajax "0.7.2"]
+                 [yada "1.2.9" :exclusions [[aleph]]]
+                 ]
 
   :plugins [[lein-figwheel "0.5.12"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
 
   :java-source-paths ["SC2APIProtocol"]
-  :source-paths ["src"]
-
+  :source-paths ["src/cljsc2/clj/" "src/cljsc2/cljc/"]
+  :jvm-opts ["-Dio.netty.leakDetection.level=advanced"]
   :cljsbuild {:builds
               [{:id "dev"
                 :source-paths ["src/cljsc2/cljs"]
@@ -54,7 +57,7 @@
                ;; production. You can build this with:
                ;; lein cljsbuild once min
                {:id "min"
-                :source-paths ["src"]
+                :source-paths ["src/cljsc2/cljs"]
                 :compiler {:output-to "resources/public/js/compiled/cljsc2.js"
                            :main cljsc2.cljs.core
                            :optimizations :advanced
@@ -107,7 +110,7 @@
                                   [figwheel-sidecar "0.5.12"]
                                   [com.cemerick/piggieback "0.2.2"]]
                    ;; need to add dev source path here to get user.clj loaded
-                   :source-paths ["src" "dev"]
+                   :source-paths ["src/cljsc2/cljs" "src/cljsc2/cljc" "dev"]
                    ;; for CIDER
                    ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}

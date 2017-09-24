@@ -1,15 +1,31 @@
 (ns cljsc2.cljs.core
-  (:require ))
+  (:require [cognitect.transit :as transit]))
 
 (enable-console-print!)
 
-;; define your app data so that it doesn't get over-written on reload
+(defonce canvas (js/document.createElement "canvas"))
 
-(defonce app-state (atom {:text "Hello world!"}))
+(defonce _
+  (do
+    (set! (.-innerHTML (js/document.querySelector "#app")) "")
+    (.appendChild (js/document.querySelector "#app") canvas)))
 
+(defonce reader
+  (transit/reader
+   :json
+   {:handlers {"literal-byte-string" (fn [it] it)}}))
 
-(defn on-js-reload []
-  ;; optionally touch your app-state to force rerendering depending on
-  ;; your application
-  ;; (swap! app-state update-in [:__figwheel_counter] inc)
-  )
+(defn handle-incoming-message [e]
+  (let [message (.-data e)]
+    (def msg message)))
+
+(defonce es
+  (doto (js/EventSource. (str "/sub"))
+    (.addEventListener
+     "message"
+     handle-incoming-message)))
+
+(comment
+  (let [img-data []]
+    (.putImageData (.getContext canvas "2d")
+                   (js/ImageData. img-data, 84, 84))))

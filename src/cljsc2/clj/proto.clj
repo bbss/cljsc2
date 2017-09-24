@@ -60,6 +60,20 @@
     (when found (keyword (str package "." file-name "$" class-name)
                       type-name))))
 
+(defn replace-ns-with-ns [for-path-key ns]
+  (let [split-path (clojure.string/split (namespace for-path-key) #"\.")
+        [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
+        ]
+    (keyword (clojure.string/join "." (concat (drop-last split-path) [ns]))
+             (name for-path-key))))
+
+(defn resolve-existing-spec-kw [kw specs namespaces]
+  (let [found (get specs (replace-ns-with-ns kw (first namespaces)))]
+    (if found
+      (replace-ns-with-ns kw (first namespaces))
+      (when (not (empty? (rest namespaces)))
+        (resolve-existing-spec-kw kw specs (rest namespaces))))))
+
 (defn get-spec
   ([item-type]
    (field-type->spec item-type))
@@ -199,20 +213,6 @@
          (read-protos "/Users/baruchberger/stah/cljsc2/resources/proto/"
                       "sc2api"
                       {}))))
-
-(defn replace-ns-with-ns [for-path-key ns]
-  (let [split-path (clojure.string/split (namespace for-path-key) #"\.")
-        [java-namespace java-class] (clojure.string/split (last split-path) #"\$")
-        ]
-    (keyword (clojure.string/join "." (concat (drop-last split-path) [ns]))
-             (name for-path-key))))
-
-(defn resolve-existing-spec-kw [kw specs namespaces]
-  (let [found (get specs (replace-ns-with-ns kw (first namespaces)))]
-    (if found
-      (replace-ns-with-ns kw (first namespaces))
-      (when (not (empty? (rest namespaces)))
-        (resolve-existing-spec-kw kw specs (rest namespaces))))))
 
 (defn try-eval-spec [kw k v namespaces]
   (let [for-namespace (first namespaces)]
@@ -376,7 +376,6 @@
                                      is-kw (keyword? kw)]
                                  (if is-kw kw spec-key))))))
 
-
 (defn make-protobuf
    "Function to create protobufs from any namespaced object, uses the generated specs of the specs atom. Not nice code, but functional and will revisit later."
    ([spec-obj]
@@ -436,21 +435,4 @@
         :else (str-invoke-method "set" b spec-key spec-obj))
       (.build b))))
 
-
-(make-protobuf
- #:SC2APIProtocol.sc2api$Request
- {:request #:SC2APIProtocol.sc2api$RequestAction
-  {:action #:SC2APIProtocol.sc2api$RequestAction
-   {:actions
-    [#:SC2APIProtocol.sc2api$Action
-     {:action-raw #:SC2APIProtocol.raw$ActionRaw
-      {:action #:SC2APIProtocol.raw$ActionRaw
-       {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
-        {:target #:SC2APIProtocol.raw$ActionRawUnitCommand
-         {:target-world-space-pos #:SC2APIProtocol.common$Point2D
-          {:x 0 :y 0}}
-         :ability-id 16
-         :queue-command false}}}}]}}})
-
-(.?(SC2APIProtocol.Sc2Api$Request/newBuilder))
-(.?(SC2APIProtocol.Sc2Api$RequestAction/newBuilder))
+(def memoized-make-protobuf (memoize make-protobuf))
