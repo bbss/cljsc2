@@ -4,8 +4,7 @@
             [clojure.spec.alpha :as spec]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test.check]
-            [spec-tools.core :as spec-t]
-            )
+            [spec-tools.core :as spec-t])
   (:use flatland.protobuf.core
         lucid.mind))
 
@@ -139,7 +138,7 @@
                (casing/spear-case one-of-name))
       {:spec`(spec/def ~(keyword (str package "." file-name "$" item-name)
                                  (casing/spear-case one-of-name))
-               (spec/keys :opt ~(into [] (keys options))))
+               (spec-t/spec (spec/keys :opt ~(into [] (keys options)))))
        :attribute-of-root true}}
      options)))
 
@@ -157,6 +156,7 @@
                      item-name)
             {:spec `(spec/def ~(keyword (str package "." file-name)
                                         item-name)
+                      ~(concat `(spec-t/spec))
                       ~(concat `(spec/keys )
                                `[:opt ~(->> body-items-specs-map
                                             (filter (fn [[spec-key spec-obj]]

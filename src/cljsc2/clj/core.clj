@@ -23,18 +23,21 @@
    SC2APIProtocol.Common
    SC2APIProtocol.Sc2Api
    SC2APIProtocol.Spatial
-   SC2APIProtocol.ScoreOuterClass))
+   SC2APIProtocol.ScoreOuterClass)
+  )
 
 (declare sc-process)
 (declare connection)
 
+(defn to-byte [it]
+  (.toByteArray it))
+
 (defn send-request [connection request]
   (s/put! connection
-          (.toByteArray
+          (to-byte
            (proto/memoized-make-protobuf
-            #:SC2APIProtocol.sc2api$Request
-            {:request request}))))
-
+                   #:SC2APIProtocol.sc2api$Request
+                   {:request request}))))
 
 (defn quit [connection]
   (send-request
@@ -115,14 +118,14 @@
   ([] (flush-incoming-responses connection))
   ([connection]
    (loop [res (latest-response-message connection)]
-     (if (or (identical? res :none) (not (identical? res nil)))
+     (if (not (identical? res nil))
        (recur (latest-response-message connection))
        :done))))
 
 (defn send-request-and-get-response-message [connection request]
   @(send-request connection request)
   (loop [res (latest-response-message connection)]
-    (if (or (identical? res :none) (identical? res nil))
+    (if (identical? res nil)
       (recur (latest-response-message connection))
       res)))
 
@@ -267,7 +270,9 @@
    connection
    #:SC2APIProtocol.sc2api$RequestStep{:step {}}))
 
+
 (defn after-each-step [connection incoming-step-observations]
+  "Responsible for adding new observations to the incoming observation stream. Steps through the game and sends the actions from the agents step function to the game. Closes when the agent returns falsy for actions"
   (fn [step-actions]
     (if step-actions
       (do (when (not (empty? step-actions))
@@ -282,34 +287,65 @@
           (send-request-and-get-response-message
            connection
            #:SC2APIProtocol.sc2api$RequestStep{:step {}})
-          (s/put! incoming-step-observations
-                  (send-request-and-get-response-message
-                   connection
-                   #:SC2APIProtocol.sc2api$RequestObservation
-                   {:observation {}})))
+          (s/put!
+           incoming-step-observations
+           (send-request-and-get-response-message
+            connection
+            #:SC2APIProtocol.sc2api$RequestObservation
+            {:observation {}})))
       (s/close! incoming-step-observations))))
 
-(defn set-up-step-fn [connection
+(defn set-up-stepper [connection
                       incoming-step-observations
                       {:keys [throttle-max-per-second
-                              step-fn] :as stepper}
+                              step-fn
+                              sink] :as stepper}
                       observation-meta-fn]
-  (let [stepper-results (stream)] ;;need to be sliding buffer?
-    (s/consume (if observation-meta-fn
-                 (fn [step-observation]
-                   (s/put! stepper-results
-                           (step-fn (with-meta
-                                      step-observation
-                                      (observation-meta-fn (System/currentTimeMillis)))
-                                    connection)))
-                 (fn [step-observation]
-                   (s/put! stepper-results
-                           (step-fn step-observation connection))))
-               (if throttle-max-per-second
-                 (s/throttle throttle-max-per-second
-                             incoming-step-observations)
-                 incoming-step-observations))
+  (let [stepper-results (or sink (stream))]
+    (if throttle-max-per-second
+      (let [intermediate (stream)
+            throttled-src (when throttle-max-per-second
+                            (s/throttle throttle-max-per-second intermediate))]
+        (s/consume
+         (if observation-meta-fn
+           (fn [step-observation]
+             (s/try-put!
+              intermediate
+              (step-fn (with-meta
+                                step-observation
+                                (observation-meta-fn (System/currentTimeMillis)))
+                              connection)
+              0))
+           (fn [step-observation]
+             (when (= 0 (:pending-puts (s/description intermediate)))
+               (s/put!
+                intermediate
+                (step-fn step-observation connection)
+                ))))
+         incoming-step-observations)
+        (s/connect throttled-src stepper-results stepper))
+      (s/connect-via
+       incoming-step-observations
+       (if observation-meta-fn
+         (fn [step-observation]
+           (s/put! stepper-results
+                   (step-fn (with-meta
+                                     step-observation
+                                     (observation-meta-fn (System/currentTimeMillis)))
+                                   connection)))
+         (fn [step-observation]
+           (s/put! stepper-results (step-fn step-observation connection))))
+       stepper-results))
     stepper-results))
+
+(defn set-up-additional-steppers [additional-steppers connection incoming-step-observations observation-meta-fn]
+  (doall (map (fn [additional-stepper]
+                (set-up-stepper
+                 connection
+                 incoming-step-observations
+                 additional-stepper
+                 observation-meta-fn))
+              additional-steppers)))
 
 (defn run-loop [connection
                 {:keys [sink
@@ -317,10 +353,13 @@
                         throttle-max-per-second
                         step-fn] :as stepper}
                 {:keys [observation-meta-fn
-                        additional-steppers] :as run-config}]
+                        additional-steppers]
+                 :or {additional-steppers []}
+                 :as run-config}]
   (flush-incoming-responses connection)
-  (let [incoming-step-observations (stream) ;;only put observation from start function returned from this fn and add all streams so I can inspect if close
-        step-action-stream (set-up-step-fn connection
+  (let [incoming-step-observations (stream)
+        additional-stepper-streams (set-up-additional-steppers additional-steppers connection incoming-step-observations observation-meta-fn)
+        step-action-stream (set-up-stepper connection
                                            incoming-step-observations
                                            stepper
                                            observation-meta-fn)]
@@ -333,45 +372,82 @@
                             (after-each-step connection incoming-step-observations)
                             step-action-stream)
      :step-action-stream step-action-stream
-     :incoming-step-observations-stream incoming-step-observations}))
+     :incoming-step-observations-stream incoming-step-observations
+     :additional-stepper-streams additional-stepper-streams}))
 
 (def counter (atom 0))
 
 (defn step [observation connection]
-  (do
-    (swap! counter inc)
-    (when (< @counter 3000)
-      (if (or (= @counter 1) (= (mod @counter 50) 0))
-        [#:SC2APIProtocol.sc2api$Action
-         {:action-ui #:SC2APIProtocol.ui$ActionUI
-          {:action
-           #:SC2APIProtocol.ui$ActionUI{:select-army {}}}}
-         #:SC2APIProtocol.sc2api$Action
-         {:action-raw #:SC2APIProtocol.raw$ActionRaw
-          {:action #:SC2APIProtocol.raw$ActionRaw
-           {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
-            {:target #:SC2APIProtocol.raw$ActionRawUnitCommand
-             {:target-world-space-pos #:SC2APIProtocol.common$Point2D
-              {:x (rand-nth (range 15 45)) :y (rand-nth (range 20 40))}}
-             :ability-id 16
-             :queue-command false
-             :unit-tags (->> observation
-                             :observation
-                             :observation
-                             :raw-data
-                             :units
-                             (filter :is-selected)
-                             (map :tag)
-                             )}}}}]
-        []))))
+  (swap! counter inc)
+  (when (< @counter 2200)
+    (if (or (or (= @counter 1) (= @counter 2)) (= (mod @counter 50) 0))
+      (if (empty? (->> observation
+                            :observation
+                            :observation
+                            :raw-data
+                            :units
+                            (filter :is-selected)
+                            (map :tag)
+                            ))
+        #:SC2APIProtocol.sc2api$Action
+        {:action-ui #:SC2APIProtocol.ui$ActionUI
+         {:action
+          #:SC2APIProtocol.ui$ActionUI{:select-army {}}}}
+        #:SC2APIProtocol.sc2api$Action
+        {:action-raw #:SC2APIProtocol.raw$ActionRaw
+         {:action #:SC2APIProtocol.raw$ActionRaw
+          {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
+           {:target #:SC2APIProtocol.raw$ActionRawUnitCommand
+            {:target-world-space-pos #:SC2APIProtocol.common$Point2D
+             {:x (rand-nth (range 15 45)) :y (rand-nth (range 20 40))}}
+            :ability-id 16
+            :queue-command false
+            :unit-tags (->> observation
+                            :observation
+                            :observation
+                            :raw-data
+                            :units
+                            (filter :is-selected)
+                            (map :tag)
+                            )}}}})
+      [])))
 
 (comment
   (start)
+
+  (restart-conn)
+
   (load-mineral-game)
+
+  (d/chain
+   (send-request
+    connection
+    #:SC2APIProtocol.sc2api$RequestCreateGame
+    {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
+     {:map #:SC2APIProtocol.sc2api$RequestCreateGame
+      {:local-map
+       {:map-path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}}
+      :player-setup
+      [#:SC2APIProtocol.sc2api$PlayerSetup
+       {:race "Zerg" :type "Participant"}
+       #:SC2APIProtocol.sc2api$PlayerSetup
+       {:race "Protoss" :type "Computer"}]}})
+   (send-request
+    connection
+    #:SC2APIProtocol.sc2api$RequestJoinGame
+    {:join-game
+     {:participation
+      #:SC2APIProtocol.sc2api$RequestJoinGame{:race "Zerg" :options {}}}}))
+
+  (def counter (atom 0))
+
   (def running-loop
     (run-loop
      connection
-     {:step-fn step
-      :throttle-max-per-second 60
+     {:step-fn cljsc2.clj.agent/step
       :description "steps -> agent"}
-     {})))
+     {:additional-steppers
+      [cljsc2.clj.web/stepper]}))
+
+  (s/close! (:incoming-step-observations-stream running-loop))
+  )

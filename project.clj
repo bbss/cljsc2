@@ -11,7 +11,7 @@
                  [org.clojure/core.async  "0.3.443"
                   :exclusions [org.clojure/tools.reader]]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
-                 [aleph "0.4.3"]
+                 [aleph "0.4.4-alpha4"]
                  [im.chit/lucid.mind "1.3.13"]
                  [instaparse "1.4.7"]
                  [org.clojure/test.check "0.10.0-alpha2"]
@@ -23,14 +23,17 @@
                  [com.cognitect/transit-cljs "0.8.239"]
                  [cljs-ajax "0.7.2"]
                  [yada "1.2.9" :exclusions [[aleph]]]
-                 ]
+
+                 [byte-streams "0.2.4-alpha3"]
+                 [cljsjs/d3 "4.3.0-5"]
+                 [specviz "0.2.4"]
+                 [rhizome "0.2.9"]]
 
   :plugins [[lein-figwheel "0.5.12"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
 
   :java-source-paths ["SC2APIProtocol"]
   :source-paths ["src/cljsc2/clj/" "src/cljsc2/cljc/"]
-  :jvm-opts ["-Dio.netty.leakDetection.level=advanced"]
   :cljsbuild {:builds
               [{:id "dev"
                 :source-paths ["src/cljsc2/cljs"]
@@ -110,7 +113,10 @@
                                   [figwheel-sidecar "0.5.12"]
                                   [com.cemerick/piggieback "0.2.2"]]
                    ;; need to add dev source path here to get user.clj loaded
-                   :source-paths ["src/cljsc2/cljs" "src/cljsc2/cljc" "dev"]
+                   :source-paths ["src/cljsc2/cljs"
+                                  "src/cljsc2/clj"
+                                  "src/cljsc2/cljc"
+                                  "dev"]
                    ;; for CIDER
                    ;; :plugins [[cider/cider-nrepl "0.12.0"]]
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
