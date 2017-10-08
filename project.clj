@@ -6,8 +6,8 @@
 
   :min-lein-version "2.7.1"
 
-  :dependencies [[org.clojure/clojure "1.9.0-alpha17"]
-                 [org.clojure/clojurescript "1.9.854"]
+  :dependencies [[org.clojure/clojure "1.9.0-beta2"]
+                 [org.clojure/clojurescript "1.9.946"]
                  [org.clojure/core.async  "0.3.443"
                   :exclusions [org.clojure/tools.reader]]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
@@ -19,18 +19,20 @@
                  [im.chit/hara.zip "2.5.10"]
                  [me.raynes/conch "0.8.0"]
                  [com.grammarly/perseverance "0.1.2"]
-                 [metosin/spec-tools "0.4.0-SNAPSHOT"]
                  [com.cognitect/transit-cljs "0.8.239"]
                  [cljs-ajax "0.7.2"]
                  [yada "1.2.9" :exclusions [[aleph]]]
-
                  [byte-streams "0.2.4-alpha3"]
                  [cljsjs/d3 "4.3.0-5"]
                  [specviz "0.2.4"]
-                 [rhizome "0.2.9"]]
+                 [rhizome "0.2.9"]
+                 [thinktopic/cortex "0.9.22"]
+                 [com.taoensso/nippy "2.14.0-alpha1"]
+                 [environ "1.1.0"]]
 
   :plugins [[lein-figwheel "0.5.12"]
-            [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
+            [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
+            [lein-environ "1.1.0"]]
 
   :java-source-paths ["SC2APIProtocol"]
   :source-paths ["src/cljsc2/clj/" "src/cljsc2/cljc/"]
@@ -46,7 +48,8 @@
                            ;; in the default browser once Figwheel has
                            ;; started and compiled your application.
                            ;; Comment this out once it no longer serves you.
-                           :open-urls ["http://localhost:3449/index.html"]}
+                           ;; :open-urls ["http://localhost:3449/index.html"]
+                           }
 
                 :compiler {:main cljsc2.cljs.core
                            :asset-path "js/compiled/out"
@@ -109,7 +112,9 @@
   ;; Setting up nREPL for Figwheel and ClojureScript dev
   ;; Please see:
   ;; https://github.com/bhauman/lein-figwheel/wiki/Using-the-Figwheel-REPL-within-NRepl
-  :profiles {:dev {:dependencies [[binaryage/devtools "0.9.4"]
+  :profiles {:dev {:env {:proto-grammar "/Users/baruchberger/stah/cljsc2/resources/proto.ebnf"
+                         :proto-dir "/Users/baruchberger/stah/cljsc2/resources/proto/"}
+                   :dependencies [[binaryage/devtools "0.9.4"]
                                   [figwheel-sidecar "0.5.12"]
                                   [com.cemerick/piggieback "0.2.2"]]
                    ;; need to add dev source path here to get user.clj loaded

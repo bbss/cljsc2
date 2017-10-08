@@ -145,8 +145,10 @@
     #:SC2APIProtocol.sc2api$RequestStep{:step {}})))
 
 (defn load-mineral-game
-  ([] (load-mineral-game connection))
-  ([connection]
+  ([] (load-mineral-game
+       connection
+       "/Applications/StarCraft II/Maps/mini_games/CollectMineralShards.SC2Map"))
+  ([connection path]
    (d/chain
     (send-request
      connection
@@ -154,7 +156,7 @@
      {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
       {:map #:SC2APIProtocol.sc2api$LocalMap
        {:local-map
-        {:map-path "/Applications/StarCraft II/Maps/mini_games/CollectMineralShards.SC2Map"}}
+        {:map-path path}}
        :player-setup
        [#:SC2APIProtocol.sc2api$PlayerSetup
         {:race "Terran" :type "Participant"}
@@ -176,6 +178,7 @@
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
          }}}}))))
+
 
 (comment
   (d/chain
@@ -377,7 +380,7 @@
 
 (def counter (atom 0))
 
-(defn step [observation connection]
+(defn random-move-step [observation connection]
   (swap! counter inc)
   (when (< @counter 2200)
     (if (or (or (= @counter 1) (= @counter 2)) (= (mod @counter 50) 0))
@@ -418,26 +421,6 @@
   (restart-conn)
 
   (load-mineral-game)
-
-  (d/chain
-   (send-request
-    connection
-    #:SC2APIProtocol.sc2api$RequestCreateGame
-    {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
-     {:map #:SC2APIProtocol.sc2api$RequestCreateGame
-      {:local-map
-       {:map-path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}}
-      :player-setup
-      [#:SC2APIProtocol.sc2api$PlayerSetup
-       {:race "Zerg" :type "Participant"}
-       #:SC2APIProtocol.sc2api$PlayerSetup
-       {:race "Protoss" :type "Computer"}]}})
-   (send-request
-    connection
-    #:SC2APIProtocol.sc2api$RequestJoinGame
-    {:join-game
-     {:participation
-      #:SC2APIProtocol.sc2api$RequestJoinGame{:race "Zerg" :options {}}}}))
 
   (def counter (atom 0))
 

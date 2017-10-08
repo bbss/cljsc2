@@ -4,12 +4,14 @@
             [clojure.spec.alpha :as spec]
             [clojure.spec.gen.alpha :as gen]
             [clojure.test.check]
-            [spec-tools.core :as spec-t])
+            [environ.core :refer [env]])
   (:use flatland.protobuf.core
         lucid.mind))
 
 (def proto-parser
-  (insta/parser "/Users/baruchberger/stah/cljsc2/resources/proto.ebnf" :auto-whitespace :standard))
+  (insta/parser (env :proto-grammar)
+                :auto-whitespace
+                :standard))
 
 (defn remove-comments [string]
   (clojure.string/join
@@ -138,7 +140,7 @@
                (casing/spear-case one-of-name))
       {:spec`(spec/def ~(keyword (str package "." file-name "$" item-name)
                                  (casing/spear-case one-of-name))
-               (spec-t/spec (spec/keys :opt ~(into [] (keys options)))))
+               (spec/keys :opt ~(into [] (keys options))))
        :attribute-of-root true}}
      options)))
 
@@ -156,7 +158,6 @@
                      item-name)
             {:spec `(spec/def ~(keyword (str package "." file-name)
                                         item-name)
-                      ~(concat `(spec-t/spec))
                       ~(concat `(spec/keys )
                                `[:opt ~(->> body-items-specs-map
                                             (filter (fn [[spec-key spec-obj]]
@@ -210,7 +211,7 @@
   (into {}
         (filter
          (fn [[k v]] (:spec v))
-         (read-protos "/Users/baruchberger/stah/cljsc2/resources/proto/"
+         (read-protos (env :proto-dir)
                       "sc2api"
                       {}))))
 
@@ -231,7 +232,10 @@
   (fn [[k v]]
     (let [kw (nth (:spec v) 2)
           is-kw (keyword? kw)
-          coll-of-kw (and (not is-kw) (sequential? kw) (not (= (nth kw 1) :opt)) (nth kw 1))
+          coll-of-kw (and (not is-kw)
+                          (sequential? kw)
+                          (not (= (first kw) 'spec-tools.core/spec))
+                          (not (= (nth kw 1) :opt)) (nth kw 1))
           is-coll-of-kw (keyword? coll-of-kw)]
       (try (eval (:spec v))
            (catch Exception e
