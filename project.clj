@@ -112,8 +112,8 @@
   ;; Setting up nREPL for Figwheel and ClojureScript dev
   ;; Please see:
   ;; https://github.com/bhauman/lein-figwheel/wiki/Using-the-Figwheel-REPL-within-NRepl
-  :profiles {:dev {:env {:proto-grammar "/Users/baruchberger/stah/cljsc2/resources/proto.ebnf"
-                         :proto-dir "/Users/baruchberger/stah/cljsc2/resources/proto/"}
+  :profiles {:dev {:env {:proto-grammar "resources/proto.ebnf"
+                         :proto-dir "resources/proto/"}
                    :dependencies [[binaryage/devtools "0.9.4"]
                                   [figwheel-sidecar "0.5.12"]
                                   [com.cemerick/piggieback "0.2.2"]]

@@ -59,12 +59,23 @@
           @(http/websocket-client "ws://127.0.0.1:5000/sc2api"
                                   {:max-frame-payload 524288})))))
 
-(defn start []
-  (stop)
-  (def sc-process
-    (sh/proc "/Applications/StarCraft II/Versions/Base55958/SC2.app/Contents/MacOS/SC2"
-             "-listen" "127.0.0.1" "-port" "5000" "-displayMode" "0"))
-  (restart-conn))
+"/Applications/StarCraft II/Versions/"
+
+(defn max-version [path]
+  (reduce max (map (fn [f] (Integer/parseInt (subs f 4)))
+                   (.list (-> path clojure.java.io/file)))))
+
+(defn start
+  ([] (start (str "/Applications/StarCraft II/Versions/Base"
+                  (max-version "/Applications/StarCraft II/Versions/")
+                  "/SC2.app/Contents/MacOS/SC2")))
+  ([path]
+   (println path)
+   (stop)
+   (def sc-process
+     (sh/proc path
+              "-listen" "127.0.0.1" "-port" "5000" "-displayMode" "0"))
+   (restart-conn)))
 
 (def Request
   (protodef SC2APIProtocol.Sc2Api$Request))
@@ -412,8 +423,7 @@
                             :units
                             (filter :is-selected)
                             (map :tag)
-                            )}}}})
-      [])))
+                            )}}}}) [])))
 
 (comment
   (start)
@@ -427,7 +437,8 @@
   (def running-loop
     (run-loop
      connection
-     {:step-fn cljsc2.clj.agent/step
+     {:step-fn random-move-step
+      :throttle-max-per-second 60
       :description "steps -> agent"}
      {:additional-steppers
       [cljsc2.clj.web/stepper]}))
