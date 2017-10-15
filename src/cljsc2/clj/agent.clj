@@ -16,6 +16,8 @@
        {:x x
         :y y}}}}}})
 
+(defonce training-data-collection (atom {}))
+
 (defn sub-step [observation connection]
   ;;marines should collect minerals as fast as they can
   ;;each marine can follow a seperate route
@@ -38,12 +40,26 @@
                                    ((comp (juxt :x :y) :pos) mineral))
                          marine
                          mineral])
-        grouped-by-marine (group-by (comp :tag second) all-distances)]
-    (->> grouped-by-marine
-         (map (fn [[tag distance-marine-mineral]]
-                (let [closest-mineral-coords (nth (apply min-key first distance-marine-mineral) 2)]
-                  [tag ((comp (juxt :x :y) :pos) closest-mineral-coords)])))
-         (map move-to-action))))
+        grouped-by-marine (group-by (comp :tag second) all-distances)
+        unit-tags-to-coords (->> grouped-by-marine
+                                 (map (fn [[tag distance-marine-mineral]]
+                                        (let [closest-mineral-coords (nth (apply min-key first distance-marine-mineral) 2)]
+                                          [tag ((comp (juxt :x :y) :pos) closest-mineral-coords)])))
+                                 )]
+    (doall (map-indexed (fn [i [_ coords]]
+                          (swap! training-data-collection
+                                 assoc
+                                 (->> observation
+                                      :observation
+                                      :observation
+                                      :feature-layer-data
+                                      :renders
+                                      :unit-type
+                                      :data)
+                                 [i coords]))
+                        unit-tags-to-coords))
+    (map move-to-action unit-tags-to-coords)
+    ))
 
 (defn step [observation connection]
   (try

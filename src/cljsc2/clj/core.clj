@@ -65,7 +65,7 @@
   (reduce max (map (fn [f] (Integer/parseInt (subs f 4)))
                    (.list (-> path clojure.java.io/file)))))
 
-(defn start
+(defn start-client
   ([] (start (str "/Applications/StarCraft II/Versions/Base"
                   (max-version "/Applications/StarCraft II/Versions/")
                   "/SC2.app/Contents/MacOS/SC2")))
@@ -286,7 +286,7 @@
 
 
 (defn after-each-step [connection incoming-step-observations]
-  "Responsible for adding new observations to the incoming observation stream. Steps through the game and sends the actions from the agents step function to the game. Closes when the agent returns falsy for actions"
+  "Responsible for adding new observations to the incoming observation stream. Steps through the game and sends the actions from the agents step function to the game. Closes when the agent returns falsey for actions"
   (fn [step-actions]
     (if step-actions
       (do (when (not (empty? step-actions))
@@ -426,7 +426,7 @@
                             )}}}}) [])))
 
 (comment
-  (start)
+  (start-client)
 
   (restart-conn)
 
@@ -443,5 +443,4 @@
      {:additional-steppers
       [cljsc2.clj.web/stepper]}))
 
-  (s/close! (:incoming-step-observations-stream running-loop))
-  )
+  (s/close! (:incoming-step-observations-stream running-loop)))
