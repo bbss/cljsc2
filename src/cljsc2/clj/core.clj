@@ -35,7 +35,7 @@
 (defn send-request [connection request]
   (s/put! connection
           (to-byte
-           (proto/memoized-make-protobuf
+           (proto/ugly-memo-make-protobuf
                    #:SC2APIProtocol.sc2api$Request
                    {:request request}))))
 
@@ -59,7 +59,6 @@
           @(http/websocket-client "ws://127.0.0.1:5000/sc2api"
                                   {:max-frame-payload 524288})))))
 
-"/Applications/StarCraft II/Versions/"
 
 (defn max-version [path]
   (reduce max (map (fn [f] (Integer/parseInt (subs f 4)))
@@ -140,6 +139,13 @@
       (recur (latest-response-message connection))
       res)))
 
+(defn restart-game
+  ([] (restart-game connection))
+  ([connection]
+   (send-request-and-get-response-message
+    connection
+    #:SC2APIProtocol.sc2api$RequestRestartGame{:restart-game {}})))
+
 (defn send-action-and-get-response [connection action]
   (send-request-and-get-response-message
    connection
@@ -216,6 +222,7 @@
    connection
    #:SC2APIProtocol.sc2api$RequestStep{:step {}})
 
+
   (send-request-and-get-response-message
    connection
    #:SC2APIProtocol.sc2api$RequestObservation{:observation {}})
@@ -280,9 +287,9 @@
            {:p1 #:SC2APIProtocol.common$PointI{:x 84, :y 84},
             :p0 #:SC2APIProtocol.common$PointI{:x 0, :y 0}}]}}}}]}})
 
-  (send-request
+  (send-request-and-get-response-message
    connection
-   #:SC2APIProtocol.sc2api$RequestStep{:step {}}))
+   #:SC2APIProtocol.sc2api$RequestRestartGame{:restart-game {}}))
 
 
 (defn after-each-step [connection incoming-step-observations]
@@ -425,22 +432,26 @@
                             (map :tag)
                             )}}}}) [])))
 
+
+
 (comment
   (start-client)
 
   (restart-conn)
+
+  (restart-game)
 
   (load-mineral-game)
 
   (def counter (atom 0))
 
   (def running-loop
-    (run-loop
-     connection
-     {:step-fn random-move-step
-      :throttle-max-per-second 60
-      :description "steps -> agent"}
-     {:additional-steppers
-      [cljsc2.clj.web/stepper]}))
-
-  (s/close! (:incoming-step-observations-stream running-loop)))
+    (do
+      (when (:incoming-step-observations-stream running-loop)
+        (s/close! (:incoming-step-observations-stream running-loop)))
+      (run-loop
+        connection
+        {:step-fn cljsc2.clj.agent/step
+         :description "steps -> agent"}
+        {:additional-steppers
+         [cljsc2.clj.web/stepper]}))))

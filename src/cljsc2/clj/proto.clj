@@ -380,10 +380,12 @@
                                      is-kw (keyword? kw)]
                                  (if is-kw kw spec-key))))))
 
-(defn make-protobuf
+(declare ugly-memo-make-protobuf)
+
+(defn ugly-make-protobuf
    "Function to create protobufs from any namespaced object, uses the generated specs of the specs atom. Not nice code, but functional and will revisit later."
    ([spec-obj]
-    (make-protobuf (ffirst spec-obj) spec-obj false))
+    (ugly-memo-make-protobuf (ffirst spec-obj) spec-obj false))
    ([spec-key spec-obj is-one-of]
     (let [b (if is-one-of
               (try (builder-for-spec-key-with-attribute spec-key)
@@ -416,7 +418,7 @@
                                                               "newBuilder"
                                                               (to-array []))))
                                                           (not (coll? child-spec-obj)) child-spec-obj
-                                                          (ffirst child-spec-obj) (make-protobuf child-spec-obj)
+                                                          (ffirst child-spec-obj) (ugly-memo-make-protobuf child-spec-obj)
                                                           :else :no-resp)]
                                           (str-invoke-method "add" b child-spec-key built-val)))
                                       spec-val))
@@ -427,16 +429,16 @@
                                                        map-spec-key)]
                                           (if (map? map-spec-val)
                                             (str-invoke-method "set" b set-kw
-                                                               (try (make-protobuf (ffirst map-spec-val) map-spec-val (not has-setter))
-                                                                    (catch Exception e (make-protobuf map-spec-key map-spec-val (not has-setter)))))
+                                                               (try (ugly-memo-make-protobuf (ffirst map-spec-val) map-spec-val (not has-setter))
+                                                                    (catch Exception e (ugly-memo-make-protobuf map-spec-key map-spec-val (not has-setter)))))
                                             (str-invoke-method "set" b set-kw map-spec-val)
                                             )))
                                       spec-val))
                           :else (str-invoke-method "set" b child-spec-key (if (map? spec-val)
-                                                                            (make-protobuf spec-val)
+                                                                            (ugly-memo-make-protobuf spec-val)
                                                                             spec-val)))))
                     spec-obj))
         :else (str-invoke-method "set" b spec-key spec-obj))
       (.build b))))
 
-(def memoized-make-protobuf (memoize make-protobuf))
+(def ugly-memo-make-protobuf (memoize ugly-make-protobuf))
