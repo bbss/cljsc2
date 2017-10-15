@@ -66,7 +66,7 @@
                    (.list (-> path clojure.java.io/file)))))
 
 (defn start-client
-  ([] (start (str "/Applications/StarCraft II/Versions/Base"
+  ([] (start-client (str "/Applications/StarCraft II/Versions/Base"
                   (max-version "/Applications/StarCraft II/Versions/")
                   "/SC2.app/Contents/MacOS/SC2")))
   ([path]
