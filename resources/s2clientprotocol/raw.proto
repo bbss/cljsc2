@@ -3,7 +3,7 @@ syntax = "proto2";
 
 package SC2APIProtocol;
 
-import "common.proto";
+import "s2clientprotocol/common.proto";
 
 //
 // Start
@@ -28,6 +28,7 @@ message ObservationRaw {
   repeated Unit units = 2;
   optional MapState map_state = 3;                // Fog of war, creep and so on. Board stuff that changes per frame.
   optional Event event = 4;
+  repeated Effect effects = 5;
 }
 
 message PowerSource {
@@ -75,7 +76,9 @@ message PassengerUnit {
   optional float health = 2;
   optional float health_max = 3;
   optional float shield = 4;
+  optional float shield_max = 7;
   optional float energy = 5;
+  optional float energy_max = 8;
   optional uint32 unit_type = 6;
 }
 
@@ -100,12 +103,15 @@ message Unit {
   optional bool is_selected = 11;
   optional bool is_on_screen = 12;          // Visible and within the camera frustrum.
   optional bool is_blip = 13;               // Detected by sensor tower
+  optional bool is_powered = 35;
 
   // Not populated for snapshots
   optional float health = 14;
   optional float health_max = 15;
   optional float shield = 16;
+  optional float shield_max = 36;
   optional float energy = 17;
+  optional float energy_max = 37;
   optional int32 mineral_contents = 18;
   optional int32 vespene_contents = 19;
   optional bool is_flying = 20;
@@ -127,6 +133,15 @@ message Unit {
 message MapState {
   optional ImageData visibility = 1;            // 1 byte visibility layer.
   optional ImageData creep = 2;                 // 1 byte creep layer.
+}
+
+message Event {
+  repeated uint64 dead_units = 1;
+}
+
+message Effect {
+  optional uint32 effect_id = 1;
+  repeated Point2D pos = 2;                     // Effect may impact multiple locations. (eg. Lurker attack)
 }
 
 
@@ -159,8 +174,4 @@ message ActionRawCameraMove {
 message ActionRawToggleAutocast {
   optional int32 ability_id = 1;
   repeated uint64 unit_tags = 2;
-}
-
-message Event {
-  repeated uint64 dead_units = 1;
 }

@@ -1,30 +1,13 @@
 (ns cljsc2.clj.core
   (:require
-   [cljsc2.clj.proto :as proto]
-   [clojure.spec.alpha :as spec]
-   [clojure.spec.gen.alpha :as gen]
-   [clojure.test.check]
    [manifold.stream :as s :refer [stream]]
    [manifold.deferred :as d]
    [aleph.http :as http]
    [perseverance.core :as p]
-   [flatland.protobuf.schema :only [field-schema]]
-   [flatland.useful.fn :only [fix]]
    [me.raynes.conch.low-level :as sh]
-   flatland.useful.utils
-   [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]])
-  (:import
-   (clojure.lang Reflector)
-   SC2APIProtocol.Raw
-   SC2APIProtocol.Ui
-   SC2APIProtocol.Data
-   SC2APIProtocol.Debug
-   SC2APIProtocol.Query
-   SC2APIProtocol.Common
-   SC2APIProtocol.Sc2Api
-   SC2APIProtocol.Spatial
-   SC2APIProtocol.ScoreOuterClass)
-  )
+   [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]]
+   [cljsc2.clj.proto :refer [ugly-memo-make-protobuf]]
+   ))
 
 (declare sc-process)
 (declare connection)
@@ -35,7 +18,7 @@
 (defn send-request [connection request]
   (s/put! connection
           (to-byte
-           (proto/ugly-memo-make-protobuf
+           (ugly-memo-make-protobuf
                    #:SC2APIProtocol.sc2api$Request
                    {:request request}))))
 
@@ -55,10 +38,11 @@
   (p/retry {:strategy (p/constant-retry-strategy 2000 10)}
     (p/retriable
         {}
-        (def connection
-          @(http/websocket-client "ws://127.0.0.1:5000/sc2api"
-                                  {:max-frame-payload 524288})))))
-
+      (do (def connection
+           @(http/websocket-client "ws://127.0.0.1:5000/sc2api"
+                                   {:max-frame-payload 998524288}))
+          (s/on-closed connection (fn [] (println "connection closed")))
+          connection))))
 
 (defn max-version [path]
   (reduce max (map (fn [f] (Integer/parseInt (subs f 4)))
@@ -139,6 +123,10 @@
       (recur (latest-response-message connection))
       res)))
 
+(defn req
+  ([req-data] (req connection req-data))
+  ([connection req-data] (send-request-and-get-response-message connection req-data)))
+
 (defn restart-game
   ([] (restart-game connection))
   ([connection]
@@ -179,6 +167,40 @@
         {:race "Terran" :type "Participant"}
         #:SC2APIProtocol.sc2api$PlayerSetup
         {:race "Protoss" :type "Computer"}]}})
+    (send-request
+     connection
+     #:SC2APIProtocol.sc2api$RequestJoinGame
+     {:join-game
+      #:SC2APIProtocol.sc2api$RequestJoinGame
+      {:participation
+       #:SC2APIProtocol.sc2api$RequestJoinGame
+       {:race "Terran"}
+       :options #:SC2APIProtocol.sc2api$InterfaceOptions
+       {:raw true
+        :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
+        }}}))))
+
+
+(defn load-simple-map
+  ([] (load-simple-map connection "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"))
+  ([connection path]
+   (d/chain
+    (send-request
+     connection
+     #:SC2APIProtocol.sc2api$RequestCreateGame
+     {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
+      {:map #:SC2APIProtocol.sc2api$LocalMap
+       {:local-map
+        {:map-path path}}
+       :player-setup
+       [#:SC2APIProtocol.sc2api$PlayerSetup
+        {:race "Terran" :type "Participant"}
+        #:SC2APIProtocol.sc2api$PlayerSetup
+        {:race "Protoss" :type "Computer"}]}})
 
     (send-request
      connection
@@ -194,7 +216,21 @@
         {:width 24
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-         }}}}))))
+         }
+        }}}))))
+
+(comment :render  #:SC2APIProtocol.sc2api$SpatialCameraSetup
+         {:width 24
+          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+          })
+
+(defn request-observation
+  ([] (request-observation connection))
+  ([connection]
+   (send-request-and-get-response-message
+    connection
+    #:SC2APIProtocol.sc2api$RequestObservation{:observation {}})))
 
 
 (comment
@@ -216,23 +252,19 @@
     #:SC2APIProtocol.sc2api$RequestJoinGame
     {:join-game
      {:participation
-      #:SC2APIProtocol.sc2api$RequestJoinGame{:race "Zerg" :options {}}}}))
-
-  (send-request-and-get-response-message
-   connection
-   #:SC2APIProtocol.sc2api$RequestStep{:step {}})
-
-
-  (send-request-and-get-response-message
-   connection
-   #:SC2APIProtocol.sc2api$RequestObservation{:observation {}})
-
-  (send-request
-   connection
-   #:SC2APIProtocol.sc2api$RequestData
-   {:data #:SC2APIProtocol.sc2api$RequestData
-    {:ability-id true
-     :unit-type-id true}})
+      #:SC2APIProtocol.sc2api$RequestJoinGame{:race "Zerg" :options {}}
+      :options #:SC2APIProtocol.sc2api$InterfaceOptions
+      {:raw true
+       :render  #:SC2APIProtocol.sc2api$SpatialCameraSetup
+       {:width 24
+        :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+        :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+        }
+       :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
+       {:width 24
+        :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+        :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+        }}}}))
 
   (send-request
    connection
@@ -308,12 +340,16 @@
           (send-request-and-get-response-message
            connection
            #:SC2APIProtocol.sc2api$RequestStep{:step {}})
-          (s/put!
-           incoming-step-observations
-           (send-request-and-get-response-message
-            connection
-            #:SC2APIProtocol.sc2api$RequestObservation
-            {:observation {}})))
+          (let [next-observation (send-request-and-get-response-message
+                                  connection
+                                  #:SC2APIProtocol.sc2api$RequestObservation
+                                  {:observation {}})]
+            (if (identical? (:status next-observation) :ended)
+              (s/close! incoming-step-observations)
+              (s/put!
+               incoming-step-observations
+               (get-in next-observation
+                       [:observation :observation])))))
       (s/close! incoming-step-observations))))
 
 (defn set-up-stepper [connection
@@ -333,15 +369,17 @@
              (s/try-put!
               intermediate
               (step-fn (with-meta
-                                step-observation
-                                (observation-meta-fn (System/currentTimeMillis)))
-                              connection)
+                         step-observation
+                         (observation-meta-fn (System/currentTimeMillis)))
+                       connection)
               0))
            (fn [step-observation]
              (when (= 0 (:pending-puts (s/description intermediate)))
                (s/put!
                 intermediate
-                (step-fn step-observation connection)
+                (step-fn
+                 step-observation
+                 connection)
                 ))))
          incoming-step-observations)
         (s/connect throttled-src stepper-results stepper))
@@ -349,13 +387,19 @@
        incoming-step-observations
        (if observation-meta-fn
          (fn [step-observation]
-           (s/put! stepper-results
-                   (step-fn (with-meta
-                                     step-observation
-                                     (observation-meta-fn (System/currentTimeMillis)))
-                                   connection)))
+           (try (s/put! stepper-results
+                        (step-fn (with-meta
+                                   step-observation
+                                   (observation-meta-fn (System/currentTimeMillis)))
+                                 connection))
+                (catch Exception e (do
+                                     (println e)
+                                     (throw e)))))
          (fn [step-observation]
-           (s/put! stepper-results (step-fn step-observation connection))))
+           (try (s/put! stepper-results (step-fn step-observation connection))
+                (catch Exception e (do
+                                     (println e)
+                                     (throw e))))))
        stepper-results))
     stepper-results))
 
@@ -381,14 +425,15 @@
   (let [incoming-step-observations (stream)
         additional-stepper-streams (set-up-additional-steppers additional-steppers connection incoming-step-observations observation-meta-fn)
         step-action-stream (set-up-stepper connection
-                                           incoming-step-observations
-                                           stepper
-                                           observation-meta-fn)]
+                                               incoming-step-observations
+                                               stepper
+                                               observation-meta-fn)]
     {:stepping (future (s/put! incoming-step-observations
-                               (send-request-and-get-response-message
-                                connection
-                                #:SC2APIProtocol.sc2api$RequestObservation
-                                {:observation {}})))
+                               (get-in (send-request-and-get-response-message
+                                       connection
+                                       #:SC2APIProtocol.sc2api$RequestObservation
+                                       {:observation {}})
+                                       [:observation :observation])))
      :consume-step-actions (s/consume
                             (after-each-step connection incoming-step-observations)
                             step-action-stream)
@@ -396,43 +441,9 @@
      :incoming-step-observations-stream incoming-step-observations
      :additional-stepper-streams additional-stepper-streams}))
 
-(def counter (atom 0))
+(start-client)
 
-(defn random-move-step [observation connection]
-  (swap! counter inc)
-  (when (< @counter 2200)
-    (if (or (or (= @counter 1) (= @counter 2)) (= (mod @counter 50) 0))
-      (if (empty? (->> observation
-                            :observation
-                            :observation
-                            :raw-data
-                            :units
-                            (filter :is-selected)
-                            (map :tag)
-                            ))
-        #:SC2APIProtocol.sc2api$Action
-        {:action-ui #:SC2APIProtocol.ui$ActionUI
-         {:action
-          #:SC2APIProtocol.ui$ActionUI{:select-army {}}}}
-        #:SC2APIProtocol.sc2api$Action
-        {:action-raw #:SC2APIProtocol.raw$ActionRaw
-         {:action #:SC2APIProtocol.raw$ActionRaw
-          {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
-           {:target #:SC2APIProtocol.raw$ActionRawUnitCommand
-            {:target-world-space-pos #:SC2APIProtocol.common$Point2D
-             {:x (rand-nth (range 15 45)) :y (rand-nth (range 20 40))}}
-            :ability-id 16
-            :queue-command false
-            :unit-tags (->> observation
-                            :observation
-                            :observation
-                            :raw-data
-                            :units
-                            (filter :is-selected)
-                            (map :tag)
-                            )}}}}) [])))
-
-
+(load-simple-map)
 
 (comment
   (start-client)
@@ -443,8 +454,6 @@
 
   (load-mineral-game)
 
-  (def counter (atom 0))
-
   (def running-loop
     (do
       (when (:incoming-step-observations-stream running-loop)
@@ -453,5 +462,4 @@
         connection
         {:step-fn cljsc2.clj.agent/step
          :description "steps -> agent"}
-        {:additional-steppers
-         [cljsc2.clj.web/stepper]}))))
+        {:additional-steppers [cljsc2.clj.web/stepper]}))))

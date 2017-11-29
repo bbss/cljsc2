@@ -1,12 +1,10 @@
 (ns cljsc2.clj.proto
-  (:require [instaparse.core :as insta]
-            [hara.string.case :as casing]
-            [clojure.spec.alpha :as spec]
-            [clojure.spec.gen.alpha :as gen]
-            [clojure.test.check]
-            [environ.core :refer [env]])
-  (:use flatland.protobuf.core
-        lucid.mind))
+  (:require
+   [instaparse.core :as insta]
+   [hara.string.case :as casing]
+   [clojure.spec.alpha :as spec]
+   [environ.core :refer [env]]
+   [lucid.mind :refer [.?]]))
 
 (def proto-parser
   (insta/parser (env :proto-grammar)
@@ -182,7 +180,7 @@
   [[item-type item-name & item-body] package path file-name env]
   (case item-type
     :import (read-protos path
-                         (->> (drop 2 (first item-body))
+                         (->> (drop 19 (first item-body))
                               (take-while (fn [[_ item]] (= :letter (first item))))
                               (map (fn [char-or-letter] (second (second char-or-letter))))
                               clojure.string/join)
@@ -211,9 +209,10 @@
   (into {}
         (filter
          (fn [[k v]] (:spec v))
-         (read-protos (env :proto-dir)
+         (read-protos (str (env :proto-dir) "/")
                       "sc2api"
-                      {}))))
+                      {}
+                      ))))
 
 (defn try-eval-spec [kw k v namespaces]
   (let [for-namespace (first namespaces)]
@@ -331,6 +330,11 @@
   ((comp casing/camel-case clojure.string/capitalize)
    (casing/spear-case (name kw))))
 
+
+(defn sub-namespace [spec-key]
+  (let [split-path (clojure.string/split (namespace spec-key) #"\.")]
+    (last split-path)))
+
 (defn str-invoke-method [method builder spec-key val]
   (try (str-invoke builder
                    (str method (class-camel-case-name spec-key))
@@ -359,13 +363,30 @@
                      (catch Exception e (try (str-invoke builder
                                                          (str method (class-camel-case-name spec-key))
                                                          (clojure.lang.Reflector/invokeStaticMethod
-                                                          (-> (get specs spec-key)
-                                                              :spec
-                                                              last
-                                                              last
-                                                              resolve-without-class)
+                                                          (resolve-without-class
+                                                           (resolve-existing-spec-kw
+                                                            (-> (get specs spec-key)
+                                                                :spec
+                                                                last)
+                                                            specs
+                                                            (disj (set namespaces)
+                                                                  (-> (get specs spec-key)
+                                                                      :spec
+                                                                      last
+                                                                      sub-namespace
+                                                                      ))))
                                                           "valueOf"
-                                                          (to-array [val])))))
+                                                          (to-array [val])))
+                                             (catch Exception e (try (str-invoke builder
+                                                                                 (str method (class-camel-case-name spec-key))
+                                                                                 (clojure.lang.Reflector/invokeStaticMethod
+                                                                                  (-> (get specs spec-key)
+                                                                                      :spec
+                                                                                      last
+                                                                                      last
+                                                                                      resolve-without-class)
+                                                                                  "valueOf"
+                                                                                  (to-array [val])))))))
                      ))))))
 
 (defn find-spec [spec-key]
