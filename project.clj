@@ -31,7 +31,9 @@
                  [environ "1.1.0"]
                  [datascript "0.16.2"]
                  [net.mikera/telegenic "0.0.1"]
-                 [thinktopic/think.image "0.4.17-SNAPSHOT"]]
+                 [stylefruits/gniazdo "1.0.1"]
+                 [thinktopic/think.image "0.4.17-SNAPSHOT"]
+                 [http-kit "2.3.0-alpha4"]]
 
   :plugins [[lein-figwheel "0.5.12"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
@@ -40,7 +42,7 @@
 
   :java-source-paths ["SC2APIProtocol"]
 
-  :jvm-opts ["--add-modules" "java.xml.bind"]
+  #_:jvm-opts #_["--add-modules" "java.xml.bind"] ;;for java9
 
   :cljsbuild {:builds
               [{:id "dev"

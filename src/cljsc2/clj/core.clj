@@ -57,7 +57,7 @@
    (stop)
    (def sc-process
      (sh/proc path
-              "-listen" "127.0.0.1" "-port" "5000" "-displayMode" "0"))
+              "-listen" "127.0.0.1" "-port" "5000" "-displayMode" "0" "-eglpath" "/usr/lib/nvidia-384/libEGL.so"))
    (restart-conn)))
 
 (def Request
@@ -117,11 +117,16 @@
        :done))))
 
 (defn send-request-and-get-response-message [connection request]
-  @(send-request connection request)
-  (loop [res (latest-response-message connection)]
-    (if (identical? res nil)
-      (recur (latest-response-message connection))
-      res)))
+  (let [req (try @(send-request connection request)
+                 (catch Exception e (println "exception sending request" e)))]
+    (loop [res (latest-response-message connection)
+           depth 0]
+      (when (> depth 10000000) (println "depth > 1000000"))
+      (if (> depth 10000000)
+        (throw (Exception. (str req "tried request > 10000000 times"))))
+      (if (identical? res nil)
+        (recur (latest-response-message connection) (inc depth))
+        res))))
 
 (defn req
   ([req-data] (req connection req-data))
@@ -218,12 +223,6 @@
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
          }
         }}}))))
-
-(comment :render  #:SC2APIProtocol.sc2api$SpatialCameraSetup
-         {:width 24
-          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-          })
 
 (defn request-observation
   ([] (request-observation connection))
@@ -440,10 +439,6 @@
      :step-action-stream step-action-stream
      :incoming-step-observations-stream incoming-step-observations
      :additional-stepper-streams additional-stepper-streams}))
-
-(start-client)
-
-(load-simple-map)
 
 (comment
   (start-client)
