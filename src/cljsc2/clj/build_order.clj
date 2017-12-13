@@ -5,41 +5,48 @@
    [taoensso.nippy :as nippy]
    [clojure.spec.alpha :as spec]))
 
-(def abilities
+
+
+(defn abilities [connection]
   (->
-   (req #:SC2APIProtocol.sc2api$RequestData
+   (req connection
+        #:SC2APIProtocol.sc2api$RequestData
         {:data #:SC2APIProtocol.sc2api$RequestData
          {:ability-id true}})
    :data
    :abilities))
 
-(def units
+(defn units [connection]
   (->
-   (req #:SC2APIProtocol.sc2api$RequestData
+   (req connection
+        #:SC2APIProtocol.sc2api$RequestData
         {:data #:SC2APIProtocol.sc2api$RequestData
          {:unit-type-id true}})
    :data
    :units))
 
-(def effects
+(defn effects [connection]
   (->
-   (req #:SC2APIProtocol.sc2api$RequestData
+   (req connection
+        #:SC2APIProtocol.sc2api$RequestData
         {:data #:SC2APIProtocol.sc2api$RequestData
          {:effect-id true}})
    :data
    :effects))
 
-(def upgrades
+(defn upgrades [connection]
   (->
-   (req #:SC2APIProtocol.sc2api$RequestData
+   (req connection
+        #:SC2APIProtocol.sc2api$RequestData
         {:data #:SC2APIProtocol.sc2api$RequestData
          {:upgrade-id true}})
    :data
    :upgrades))
 
-(def buffs
+(defn buffs [connection]
   (->
-   (req #:SC2APIProtocol.sc2api$RequestData
+   (req connection
+        #:SC2APIProtocol.sc2api$RequestData
         {:data #:SC2APIProtocol.sc2api$RequestData
          {:buff-id true}})
    :data
@@ -92,52 +99,6 @@
                          (dec idx)
                          score))))))
 
-(comment
-  (map (comp :data first
-             #(fuzzy-search %
-                            units
-                            :unit-id 1))
-       #{20 27 24 21 22 41 29 6 28 25 23 132 26 30 18 37})
-
-  (fuzzy-search 27 units :unit-id)
-  (fuzzy-search "marine" units :friendly-name 10)
-  (def mineral-cent-per-second
-    (-> (* 100 (/ 500 12 60))
-        double
-        Math/round
-        int))
-
-  (run 4 [q]
-    (fresh [minerals seconds minerals-earned workers]
-      (== minerals 100)
-      (fd/in seconds (fd/interval 0 2))
-      (fd/* mineral-cent-per-second seconds minerals-earned)
-      (fd/+ minerals-earned minerals q)))
-
-  (run 10 [q]
-    (fresh [minerals seconds mined-seconds minerals-earned workers total-minerals]
-      (== minerals 10000)
-      (fd/in seconds (fd/interval 0 100))
-      (fd/in workers (fd/interval 0 80))
-      (fd/* workers seconds mined-seconds)
-      (fd/* mineral-cent-per-second mined-seconds minerals-earned)
-      (fd/+ minerals-earned minerals total-minerals)
-      (fd/>= total-minerals 20000)
-      (== [seconds workers total-minerals] q)))
-
-  (run 10 [q]
-    (fresh [starting-minerals game-seconds mined-seconds minerals-earned workers total-minerals]
-      (== starting-minerals 10000)
-      (fd/in game-seconds (fd/interval 0 100))
-      (fd/in workers (fd/interval 0 80))
-      (fd/* workers game-seconds mined-seconds)
-      (fd/* mineral-cent-per-second mined-seconds minerals-earned)
-      (fd/+ minerals-earned starting-minerals total-minerals)
-      (fd/>= total-minerals 20000)
-      (== [game-seconds workers total-minerals] q)))
-
-
-  (fuzzy-search 595 abilities :ability-id))
 
 (defn fuzzy-search
   ([query col get-against]
@@ -151,7 +112,6 @@
                             (for [doc col]
                               {:data doc
                                :score (score query (clojure.string/lower-case (or (get-against doc) "")))})))))))
-
 
 (def memoized-search (memoize cljsc2.clj.build-order/fuzzy-search))
 
@@ -200,14 +160,6 @@
               )))
 
 (comment
-  (i-have command-center 8 scv)
-
-  (i-want scv)
-
-  (i-earn tasked-scvs seconds)
-
-  (i-spent creator-queues)
-
   (spec/def ::amount int?)
   (spec/def ::unit-id int?)
   (spec/def ::units-string (spec/coll-of (spec/cat ::amount ::unit-id)))
