@@ -151,7 +151,7 @@
   ([connection]
    (send-request-and-get-response-message
     connection
-    #:SC2APIProtocol.sc2api$RequestStep{:step {}})))
+    #:SC2APIProtocol.sc2api$RequestStep{:step {:count 22}})))
 
 (defn load-mineral-game
   ([connection]
@@ -240,7 +240,7 @@
 
 (defn do-sc2
   ([connection step-fn]
-   (run-loop-recur-collect-obs-actions connection step-fn {}))
+   (do-sc2 connection step-fn {}))
   ([connection step-fn {:keys [collect-actions
                                collect-observations
                                use-datalog-observation

@@ -4,12 +4,14 @@
    [manifold.stream :as s :refer [stream]]
    [clojure.data :refer [diff]]
    [datascript.core :as ds]
-   [clojure.spec.alpha :as spec])
+   [clojure.spec.alpha :as spec]
+   [telegenic.core :refer [encode]]
+   [byte-transforms :as byte-tf]
+   )
   (:import java.awt.image.BufferedImage
            java.awt.image.DataBuffer
            java.awt.image.Raster
-           java.io.File)
-  (:use telegenic.core))
+           java.io.File))
 
 (defn render-observation->buffered-image [{:keys [data bits-per-pixel size]}]
   (let [as-byte-array (byte-array data)
@@ -26,9 +28,12 @@
     bi
     ))
 
+(byte-tf/encode )
+
 (defn observations->mp4
   ([observations port]
-   (let []
-     (->> observations
-          (map (comp render-observation->buffered-image :map :render-data)))
-     {:filename (str (System/currentTimeMillis) ":" port)})))
+   (let [filename]
+     (encode
+      (->> observations
+           (map (comp render-observation->buffered-image :map :render-data)))
+      {:filename filename}))))

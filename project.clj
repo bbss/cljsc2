@@ -34,7 +34,8 @@
                  [stylefruits/gniazdo "1.0.1"]
                  [thinktopic/think.image "0.4.17-SNAPSHOT"]
                  [http-kit "2.3.0-alpha4"]
-                 [datascript-transit "0.2.2"]]
+                 [datascript-transit "0.2.2"]
+                 [byte-transforms "0.1.5-alpha1"]]
 
   :plugins [[lein-figwheel "0.5.12"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
