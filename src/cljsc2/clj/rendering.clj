@@ -7,11 +7,13 @@
    [clojure.spec.alpha :as spec]
    [telegenic.core :refer [encode]]
    [byte-transforms :as byte-tf]
+   [byte-streams :as byte-streams]
    )
-  (:import java.awt.image.BufferedImage
-           java.awt.image.DataBuffer
-           java.awt.image.Raster
-           java.io.File))
+  (:import
+   java.awt.image.BufferedImage
+   java.awt.image.DataBuffer
+   java.awt.image.Raster
+   java.io.File))
 
 (defn render-observation->buffered-image [{:keys [data bits-per-pixel size]}]
   (let [as-byte-array (byte-array data)
@@ -28,12 +30,23 @@
     bi
     ))
 
-(byte-tf/encode )
-
 (defn observations->mp4
-  ([observations port]
-   (let [filename]
+  ([unique observations]
+   (let [filename (str unique " - " (System/currentTimeMillis) ".mp4")]
      (encode
       (->> observations
            (map (comp render-observation->buffered-image :map :render-data)))
       {:filename filename}))))
+
+(defn to-base64 [file-path]
+  (byte-streams/to-string
+   (byte-tf/encode
+    (byte-streams/to-byte-array (clojure.java.io/File. file-path))
+    :base64 {:url-safe? false})))
+
+(defn run-result->mp4-file-path [run-result]
+  (->> run-result
+       first
+       persistent!
+       ((partial observations->mp4 5000))
+       :file-name))
