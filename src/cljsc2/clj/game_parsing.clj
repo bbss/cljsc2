@@ -97,6 +97,13 @@
    :owner :unit/owner
    })
 
+(def knowledge-layout
+  {:datascript-schema schema
+   :ability-type-attributes (vals ability-type-keymap)
+   :unit-type-attributes (vals unit-type-keymap)
+   :unit-attributes (vals unit-keymap)
+   :upgrade-type-attributes (vals upgrade-keymap)})
+
 (defn obs->facts [{:keys [game-loop player-common raw-data]}]
    (let [{:keys [minerals vespene food-cap food-used food-workers
                  idle-worker-count army-count player-id food-cap]} player-common
