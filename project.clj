@@ -38,6 +38,7 @@
                  [byte-transforms "0.1.5-alpha1"]]
 
   :plugins [[lein-figwheel "0.5.12"]
+            [cider/cider-nrepl "0.17.0-SNAPSHOT"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-environ "1.1.0"]
             [lein-jupyter "0.1.8"]]

@@ -5,8 +5,6 @@
    [taoensso.nippy :as nippy]
    [clojure.spec.alpha :as spec]))
 
-
-
 (defn abilities [connection]
   (->
    (req connection

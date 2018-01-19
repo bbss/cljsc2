@@ -13,6 +13,12 @@
                :db/valueType :db.type/ref}
    :unit/buff-ids {:db/cardinality :db.cardinality/many
                    :db/valueType :db.type/ref}
+   :unit/orders {:db/cardinality :db.cardinality/many
+                 :db/valueType :db.type/ref}
+   :order/ability-id {:db/cardinality :db.cardinality/many
+                      :db/valueType :db.type/ref}
+   :order/target-unit-tag {:db/cardinality :db.cardinality/many
+                           :db/valueType :db.type/ref}
    :unit-type/abilities {:db/cardinality :db.cardinality/many
                          :db/valueType :db.type/ref}
    :upgrade-type/ability-id {:db/cardinality :db.cardinality/many
@@ -29,6 +35,12 @@
    :research-time :upgrade-type/research-time
    :mineral-cost :upgrade-type/mineral-cost
    :vespene-cost :upgrade-type/vespene-cost})
+
+(def order-type-keymap
+  {:ability-id :order/ability-id
+   :progress :order/progress
+   :target-unit-tag :order/target-unit-tag
+   :target-world-space-pos :order/target-world-space-pos})
 
 (def unit-type-keymap
   {:movement-speed :unit-type/movement-speed
@@ -89,98 +101,141 @@
    :energy-max :unit/energy-max
    :radar-range :unit/radar-range
    :health :unit/health
-   :buff-ids :unit/buff-ids
    :cargo-space-max :unit/cargo-space-max
    :tag :unit/tag
    :is-flying :unit/is-flying
    :shield-max :unit/shield-max
    :owner :unit/owner
-   })
+   :mineral-contents :unit/mineral-contents})
 
 (def knowledge-layout
   {:datascript-schema schema
    :ability-type-attributes (vals ability-type-keymap)
    :unit-type-attributes (vals unit-type-keymap)
    :unit-attributes (vals unit-keymap)
-   :upgrade-type-attributes (vals upgrade-keymap)})
+   :upgrade-type-attributes (vals upgrade-keymap)
+   :order-attributes (vals order-type-keymap)})
 
 (defn obs->facts [{:keys [game-loop player-common raw-data]}]
-   (let [{:keys [minerals vespene food-cap food-used food-workers
-                 idle-worker-count army-count player-id food-cap]} player-common
-         game-loop-id (+ 1234000000 game-loop)]
-     (concat [{:db/id game-loop-id
-               :player-common/minerals minerals
-               :player-common/vespene vespene
-               :player-common/food-used food-used
-               :player-common/food-cap food-cap
-               :player-common/food-workers food-workers
-               :player-common/idle-worker-count idle-worker-count
-               :player-common/army-count army-count}
-              {:db/id -1 :meta/latest-game-loop game-loop}
-              {:db/id -2 :meta/player-id player-id}]
-             (map
-              (fn [unit]
-                (merge (clojure.set/rename-keys
-                       (select-keys
-                        unit
-                        (vals unit-keymap))
-                       unit-keymap)
-                       {:db/id (:tag unit)
-                        :unit/x (:x (:pos unit))
-                        :unit/y (:y (:pos unit))
-                        :unit/z (:z (:pos unit))
-                        :unit/buff-ids (map #(+ 660000 %) (:buff-ids unit))}))
-              (:units raw-data)))
-     ))
+  (let [{:keys [minerals vespene food-cap food-used food-workers
+                idle-worker-count army-count player-id food-cap]} player-common
+        game-loop-id (+ 1234000000 game-loop)]
+    (concat [{:db/id game-loop-id
+              :player-common/minerals minerals
+              :player-common/vespene vespene
+              :player-common/food-used food-used
+              :player-common/food-cap food-cap
+              :player-common/food-workers food-workers
+              :player-common/idle-worker-count idle-worker-count
+              :player-common/army-count army-count}
+             {:db/id -1 :meta/latest-game-loop game-loop}
+             {:db/id -2 :meta/player-id player-id}]
+            (map
+             (fn [unit]
+               (let [namespaced-unit (merge (clojure.set/rename-keys
+                                             (select-keys
+                                              unit
+                                              (vals unit-keymap))
+                                             unit-keymap)
+                                            {:db/id (:tag unit)
+                                             :unit/x (:x (:pos unit))
+                                             :unit/y (:y (:pos unit))
+                                             :unit/z (:z (:pos unit))
+                                             :unit/buff-ids (map #(+ 660000 %)
+                                                                 (:buff-ids unit))})]
+                 (if (:unit/orders namespaced-unit)
+                   (update
+                    namespaced-unit
+                    :unit/orders
+                    (fn [orders]
+                      (map (fn [order] (* (:tag unit)
+                                          (:ability-id order)))
+                           orders)))
+                   namespaced-unit)))
+             (:units raw-data))
+            (mapcat
+             (fn [unit]
+               (if (:orders unit)
+                 (map (fn [order]
+                        (merge (clojure.set/rename-keys
+                                (select-keys
+                                 order
+                                 (vals order-type-keymap))
+                                order-type-keymap)
+                               {:db/id (* (:tag unit) (:ability-id order))}))
+                      (:orders unit))
+                 []))
+             (:units raw-data))
+            )
+    ))
 
 (defn distance [x1 y1 x2 y2]
   (let [dx (- x2 x1), dy (- y2 y1)]
     (Math/sqrt (+ (* dx dx) (* dy dy)))))
 
 (defn ability-to-action
-  ([tags ability]
+  ([tag-or-tags ability-id]
+    (ability-to-action tag-or-tags ability-id {}))
+  ([tag-or-tags ability {:keys [queue-command] :or {queue-command false}}]
    #:SC2APIProtocol.sc2api$Action
    {:action-raw #:SC2APIProtocol.raw$ActionRaw
     {:action #:SC2APIProtocol.raw$ActionRaw
      {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
-      {:unit-tags tags
+      {:unit-tags (if (coll? tag-or-tags) tag-or-tags [tag-or-tags])
+       :queue-command queue-command
        :ability-id ability
        :target #:SC2APIProtocol.raw$ActionRawUnitCommand{}}}}})
-  ([tags ability target-unit-tag]
+  ([tag-or-tags ability target-unit-tag {:keys [queue-command] :or {queue-command false}}]
    #:SC2APIProtocol.sc2api$Action
    {:action-raw #:SC2APIProtocol.raw$ActionRaw
     {:action #:SC2APIProtocol.raw$ActionRaw
      {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
-      {:unit-tags tags
+      {:queue-command queue-command
+       :unit-tags (if (coll? tag-or-tags) tag-or-tags [tag-or-tags])
        :ability-id ability
        :target #:SC2APIProtocol.raw$ActionRawUnitCommand
        {:target-unit-tag target-unit-tag}}}}})
-  ([tags ability x y]
+  ([tag-or-tags ability x y {:keys [queue-command] :or {queue-command false}}]
    #:SC2APIProtocol.sc2api$Action
    {:action-raw #:SC2APIProtocol.raw$ActionRaw
     {:action #:SC2APIProtocol.raw$ActionRaw
      {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
-      {:unit-tags tags
+      {:unit-tags (if (coll? tag-or-tags) tag-or-tags [tag-or-tags])
+       :queue-command queue-command
        :ability-id ability
        :target #:SC2APIProtocol.raw$ActionRawUnitCommand
        {:target-world-space-pos #:SC2APIProtocol.common$Point2D
         {:x x
          :y y}}}}}}))
 
-(defn can-place? [conn ability-id builder-tag x y]
-  (identical? (-> (core/send-request-and-get-response-message
-                   conn
-                   #:SC2APIProtocol.query$RequestQuery
-                   {:query #:SC2APIProtocol.query$RequestQuery
-                    {:placements
-                     [#:SC2APIProtocol.query$RequestQueryBuildingPlacement
-                      {:ability-id ability-id
-                       :placing-unit-tag builder-tag
-                       :target-pos #:SC2APIProtocol.common$Point2D
-                       {:x x
-                        :y y}}]}})
-                  :query :placements first :result)
-              :success))
+(defn can-place?
+  ([conn ability-id x y]
+   (identical? (-> (core/send-request-and-get-response-message
+                    conn
+                    #:SC2APIProtocol.query$RequestQuery
+                    {:query #:SC2APIProtocol.query$RequestQuery
+                     {:placements
+                      [#:SC2APIProtocol.query$RequestQueryBuildingPlacement
+                       {:ability-id ability-id
+                        :target-pos #:SC2APIProtocol.common$Point2D
+                        {:x x
+                         :y y}}]}})
+                   :query :placements first :result)
+               :success))
+  ([conn ability-id builder-tag x y]
+   (identical? (-> (core/send-request-and-get-response-message
+                    conn
+                    #:SC2APIProtocol.query$RequestQuery
+                    {:query #:SC2APIProtocol.query$RequestQuery
+                     {:placements
+                      [#:SC2APIProtocol.query$RequestQueryBuildingPlacement
+                       {:ability-id ability-id
+                        :placing-unit-tag builder-tag
+                        :target-pos #:SC2APIProtocol.common$Point2D
+                        {:x x
+                         :y y}}]}})
+                   :query :placements first :result)
+               :success)))
 
 (defn find-location [connection builder-tag ability-id positions]
   (loop [remaining-positions positions
@@ -291,7 +346,6 @@
                 builders))
          :actions)))
 
-
 (defn build-barracks [latest-knowledge connection]
   (let [[builder-tag ability-id] (ds/q '[:find [?unit-tag ?build-ability]
                                          :where
@@ -387,7 +441,6 @@
    build-supply-depots
    build-barracks
    build-marines
-   (attack-with 40 "Marine" 40 50)
    #_(attack-with 40 "Marine" 25 20)])
 
 (defn create-actions [knowledge-base strategies obs connection]
@@ -396,6 +449,52 @@
     (mapcat (fn [strategy]
               (strategy latest-knowledge connection))
             strategies)))
+
+(defn obs->minimap-built-facts [observation]
+    (map-indexed
+     (fn [index minimap-point]
+       (merge minimap-point
+              {:db/id (* -1 (inc index))}))
+     (let [pixel-rows (->>
+                       observation
+                       :feature-layer-data
+                       :minimap-renders
+                       :player-relative
+                       :data
+                       (map #(= 0 %))
+                       (partition 64)
+                       )]
+       (for [[y-index pixel-row] (zipmap (range) pixel-rows)
+             [x-index pixel] (zipmap (range) pixel-row)]
+         {:minimap/x x-index
+          :minimap/y y-index
+          :minimap/available pixel}))))
+
+
+(defn print-minimap-to-string [observation]
+  (->>
+   (ds/q '[:find ?y ?x ?av
+           :in $ % positions-around can-place distance
+           :where
+           [?e :minimap/available ?av]
+           [?e :minimap/x ?x]
+           [?e :minimap/y ?y]
+           ]
+         (ds/db-with knowledge-base
+                     (concat (obs->minimap-built-facts observation)
+                             (obs->facts observation)))
+         (concat can-build-rule
+                 units-of-type-rule)
+         positions-around
+         (partial can-place? conn)
+         distance)
+   (sort-by (fn [[y x _]]  (+ (* 100 y) x)))
+   (map (fn [[x y a]] (if a (str "  ") "x ")))
+   (partition 64)
+   (map (partial clojure.string/join ""))
+   (clojure.string/join "\n")
+   (println)
+   ))
 
 (comment
   (def sc-process (core/start-client))
@@ -407,4 +506,5 @@
    (fn [observation connection]
      (def obs observation)
      (create-actions knowledge-base strategies observation connection))
-   {:run-until-fn (core/run-for 5000)}))
+   {:run-until-fn (core/run-for 5000)})
+  )
