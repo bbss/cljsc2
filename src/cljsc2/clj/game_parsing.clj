@@ -471,7 +471,7 @@
           :minimap/available pixel}))))
 
 
-(defn print-minimap-to-string [observation]
+(comment defn print-minimap-to-string [observation]
   (->>
    (ds/q '[:find ?y ?x ?av
            :in $ % positions-around can-place distance

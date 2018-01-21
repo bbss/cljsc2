@@ -1,9 +1,8 @@
-
 <!DOCTYPE html>
-<!-- saved from url=(0051)file:///Users/baruchberger/Downloads/Untitled3.html -->
-<html><head><meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
-<title>Untitled3</title><script src="./index_files/require.min.js"></script>
-<script src="./index_files/jquery.min.js"></script>
+<html>
+<head><meta charset="utf-8" />
+<title>CLJSC2 Example usage</title><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.1.10/require.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/2.0.3/jquery.min.js"></script>
 
 <style type="text/css">
     /*!
@@ -11744,13 +11743,13 @@ div#notebook {
 </style>
 
 <!-- Custom stylesheet, it must be in the same directory as the html file -->
-<link rel="stylesheet" href="file:///Users/baruchberger/Downloads/custom.css">
+<link rel="stylesheet" href="custom.css">
 
 <!-- Loading mathjax macro -->
 <!-- Load mathjax -->
-    <script src="./index_files/MathJax.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjax/2.7.1/MathJax.js?config=TeX-AMS_HTML"></script>
     <!-- MathJax configuration -->
-    <script type="text/x-mathjax-config;executed=true">
+    <script type="text/x-mathjax-config">
     MathJax.Hub.Config({
         tex2jax: {
             inlineMath: [ ['$','$'], ["\\(","\\)"] ],
@@ -11767,103 +11766,8 @@ div#notebook {
         }
     });
     </script>
-    <!-- End of mathjax configuration --><style type="text/css">.MathJax_Hover_Frame {border-radius: .25em; -webkit-border-radius: .25em; -moz-border-radius: .25em; -khtml-border-radius: .25em; box-shadow: 0px 0px 15px #83A; -webkit-box-shadow: 0px 0px 15px #83A; -moz-box-shadow: 0px 0px 15px #83A; -khtml-box-shadow: 0px 0px 15px #83A; border: 1px solid #A6D ! important; display: inline-block; position: absolute}
-.MathJax_Menu_Button .MathJax_Hover_Arrow {position: absolute; cursor: pointer; display: inline-block; border: 2px solid #AAA; border-radius: 4px; -webkit-border-radius: 4px; -moz-border-radius: 4px; -khtml-border-radius: 4px; font-family: 'Courier New',Courier; font-size: 9px; color: #F0F0F0}
-.MathJax_Menu_Button .MathJax_Hover_Arrow span {display: block; background-color: #AAA; border: 1px solid; border-radius: 3px; line-height: 0; padding: 4px}
-.MathJax_Hover_Arrow:hover {color: white!important; border: 2px solid #CCC!important}
-.MathJax_Hover_Arrow:hover span {background-color: #CCC!important}
-</style><style type="text/css">#MathJax_About {position: fixed; left: 50%; width: auto; text-align: center; border: 3px outset; padding: 1em 2em; background-color: #DDDDDD; color: black; cursor: default; font-family: message-box; font-size: 120%; font-style: normal; text-indent: 0; text-transform: none; line-height: normal; letter-spacing: normal; word-spacing: normal; word-wrap: normal; white-space: nowrap; float: none; z-index: 201; border-radius: 15px; -webkit-border-radius: 15px; -moz-border-radius: 15px; -khtml-border-radius: 15px; box-shadow: 0px 10px 20px #808080; -webkit-box-shadow: 0px 10px 20px #808080; -moz-box-shadow: 0px 10px 20px #808080; -khtml-box-shadow: 0px 10px 20px #808080; filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=2, OffY=2, Color='gray', Positive='true')}
-#MathJax_About.MathJax_MousePost {outline: none}
-.MathJax_Menu {position: absolute; background-color: white; color: black; width: auto; padding: 5px 0px; border: 1px solid #CCCCCC; margin: 0; cursor: default; font: menu; text-align: left; text-indent: 0; text-transform: none; line-height: normal; letter-spacing: normal; word-spacing: normal; word-wrap: normal; white-space: nowrap; float: none; z-index: 201; border-radius: 5px; -webkit-border-radius: 5px; -moz-border-radius: 5px; -khtml-border-radius: 5px; box-shadow: 0px 10px 20px #808080; -webkit-box-shadow: 0px 10px 20px #808080; -moz-box-shadow: 0px 10px 20px #808080; -khtml-box-shadow: 0px 10px 20px #808080; filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=2, OffY=2, Color='gray', Positive='true')}
-.MathJax_MenuItem {padding: 1px 2em; background: transparent}
-.MathJax_MenuArrow {position: absolute; right: .5em; padding-top: .25em; color: #666666; font-size: .75em}
-.MathJax_MenuActive .MathJax_MenuArrow {color: white}
-.MathJax_MenuArrow.RTL {left: .5em; right: auto}
-.MathJax_MenuCheck {position: absolute; left: .7em}
-.MathJax_MenuCheck.RTL {right: .7em; left: auto}
-.MathJax_MenuRadioCheck {position: absolute; left: .7em}
-.MathJax_MenuRadioCheck.RTL {right: .7em; left: auto}
-.MathJax_MenuLabel {padding: 1px 2em 3px 1.33em; font-style: italic}
-.MathJax_MenuRule {border-top: 1px solid #DDDDDD; margin: 4px 3px}
-.MathJax_MenuDisabled {color: GrayText}
-.MathJax_MenuActive {background-color: #606872; color: white}
-.MathJax_MenuDisabled:focus, .MathJax_MenuLabel:focus {background-color: #E8E8E8}
-.MathJax_ContextMenu:focus {outline: none}
-.MathJax_ContextMenu .MathJax_MenuItem:focus {outline: none}
-#MathJax_AboutClose {top: .2em; right: .2em}
-.MathJax_Menu .MathJax_MenuClose {top: -10px; left: -10px}
-.MathJax_MenuClose {position: absolute; cursor: pointer; display: inline-block; border: 2px solid #AAA; border-radius: 18px; -webkit-border-radius: 18px; -moz-border-radius: 18px; -khtml-border-radius: 18px; font-family: 'Courier New',Courier; font-size: 24px; color: #F0F0F0}
-.MathJax_MenuClose span {display: block; background-color: #AAA; border: 1.5px solid; border-radius: 18px; -webkit-border-radius: 18px; -moz-border-radius: 18px; -khtml-border-radius: 18px; line-height: 0; padding: 8px 0 6px}
-.MathJax_MenuClose:hover {color: white!important; border: 2px solid #CCC!important}
-.MathJax_MenuClose:hover span {background-color: #CCC!important}
-.MathJax_MenuClose:hover:focus {outline: none}
-</style><style type="text/css">.MathJax_Preview .MJXf-math {color: inherit!important}
-</style><style type="text/css">.MJX_Assistive_MathML {position: absolute!important; top: 0; left: 0; clip: rect(1px, 1px, 1px, 1px); padding: 1px 0 0 0!important; border: 0!important; height: 1px!important; width: 1px!important; overflow: hidden!important; display: block!important; -webkit-touch-callout: none; -webkit-user-select: none; -khtml-user-select: none; -moz-user-select: none; -ms-user-select: none; user-select: none}
-.MJX_Assistive_MathML.MJX_Assistive_MathML_Block {width: 100%!important}
-</style><style type="text/css">#MathJax_Zoom {position: absolute; background-color: #F0F0F0; overflow: auto; display: block; z-index: 301; padding: .5em; border: 1px solid black; margin: 0; font-weight: normal; font-style: normal; text-align: left; text-indent: 0; text-transform: none; line-height: normal; letter-spacing: normal; word-spacing: normal; word-wrap: normal; white-space: nowrap; float: none; -webkit-box-sizing: content-box; -moz-box-sizing: content-box; box-sizing: content-box; box-shadow: 5px 5px 15px #AAAAAA; -webkit-box-shadow: 5px 5px 15px #AAAAAA; -moz-box-shadow: 5px 5px 15px #AAAAAA; -khtml-box-shadow: 5px 5px 15px #AAAAAA; filter: progid:DXImageTransform.Microsoft.dropshadow(OffX=2, OffY=2, Color='gray', Positive='true')}
-#MathJax_ZoomOverlay {position: absolute; left: 0; top: 0; z-index: 300; display: inline-block; width: 100%; height: 100%; border: 0; padding: 0; margin: 0; background-color: white; opacity: 0; filter: alpha(opacity=0)}
-#MathJax_ZoomFrame {position: relative; display: inline-block; height: 0; width: 0}
-#MathJax_ZoomEventTrap {position: absolute; left: 0; top: 0; z-index: 302; display: inline-block; border: 0; padding: 0; margin: 0; background-color: white; opacity: 0; filter: alpha(opacity=0)}
-</style><style type="text/css">.MathJax_Preview {color: #888}
-#MathJax_Message {position: fixed; left: 1em; bottom: 1.5em; background-color: #E6E6E6; border: 1px solid #959595; margin: 0px; padding: 2px 8px; z-index: 102; color: black; font-size: 80%; width: auto; white-space: nowrap}
-#MathJax_MSIE_Frame {position: absolute; top: 0; left: 0; width: 0px; z-index: 101; border: 0px; margin: 0px; padding: 0px}
-.MathJax_Error {color: #CC0000; font-style: italic}
-</style><style type="text/css">.MJXp-script {font-size: .8em}
-.MJXp-right {-webkit-transform-origin: right; -moz-transform-origin: right; -ms-transform-origin: right; -o-transform-origin: right; transform-origin: right}
-.MJXp-bold {font-weight: bold}
-.MJXp-italic {font-style: italic}
-.MJXp-scr {font-family: MathJax_Script,'Times New Roman',Times,STIXGeneral,serif}
-.MJXp-frak {font-family: MathJax_Fraktur,'Times New Roman',Times,STIXGeneral,serif}
-.MJXp-sf {font-family: MathJax_SansSerif,'Times New Roman',Times,STIXGeneral,serif}
-.MJXp-cal {font-family: MathJax_Caligraphic,'Times New Roman',Times,STIXGeneral,serif}
-.MJXp-mono {font-family: MathJax_Typewriter,'Times New Roman',Times,STIXGeneral,serif}
-.MJXp-largeop {font-size: 150%}
-.MJXp-largeop.MJXp-int {vertical-align: -.2em}
-.MJXp-math {display: inline-block; line-height: 1.2; text-indent: 0; font-family: 'Times New Roman',Times,STIXGeneral,serif; white-space: nowrap; border-collapse: collapse}
-.MJXp-display {display: block; text-align: center; margin: 1em 0}
-.MJXp-math span {display: inline-block}
-.MJXp-box {display: block!important; text-align: center}
-.MJXp-box:after {content: " "}
-.MJXp-rule {display: block!important; margin-top: .1em}
-.MJXp-char {display: block!important}
-.MJXp-mo {margin: 0 .15em}
-.MJXp-mfrac {margin: 0 .125em; vertical-align: .25em}
-.MJXp-denom {display: inline-table!important; width: 100%}
-.MJXp-denom > * {display: table-row!important}
-.MJXp-surd {vertical-align: top}
-.MJXp-surd > * {display: block!important}
-.MJXp-script-box > *  {display: table!important; height: 50%}
-.MJXp-script-box > * > * {display: table-cell!important; vertical-align: top}
-.MJXp-script-box > *:last-child > * {vertical-align: bottom}
-.MJXp-script-box > * > * > * {display: block!important}
-.MJXp-mphantom {visibility: hidden}
-.MJXp-munderover {display: inline-table!important}
-.MJXp-over {display: inline-block!important; text-align: center}
-.MJXp-over > * {display: block!important}
-.MJXp-munderover > * {display: table-row!important}
-.MJXp-mtable {vertical-align: .25em; margin: 0 .125em}
-.MJXp-mtable > * {display: inline-table!important; vertical-align: middle}
-.MJXp-mtr {display: table-row!important}
-.MJXp-mtd {display: table-cell!important; text-align: center; padding: .5em 0 0 .5em}
-.MJXp-mtr > .MJXp-mtd:first-child {padding-left: 0}
-.MJXp-mtr:first-child > .MJXp-mtd {padding-top: 0}
-.MJXp-mlabeledtr {display: table-row!important}
-.MJXp-mlabeledtr > .MJXp-mtd:first-child {padding-left: 0}
-.MJXp-mlabeledtr:first-child > .MJXp-mtd {padding-top: 0}
-.MJXp-merror {background-color: #FFFF88; color: #CC0000; border: 1px solid #CC0000; padding: 1px 3px; font-style: normal; font-size: 90%}
-.MJXp-scale0 {-webkit-transform: scaleX(.0); -moz-transform: scaleX(.0); -ms-transform: scaleX(.0); -o-transform: scaleX(.0); transform: scaleX(.0)}
-.MJXp-scale1 {-webkit-transform: scaleX(.1); -moz-transform: scaleX(.1); -ms-transform: scaleX(.1); -o-transform: scaleX(.1); transform: scaleX(.1)}
-.MJXp-scale2 {-webkit-transform: scaleX(.2); -moz-transform: scaleX(.2); -ms-transform: scaleX(.2); -o-transform: scaleX(.2); transform: scaleX(.2)}
-.MJXp-scale3 {-webkit-transform: scaleX(.3); -moz-transform: scaleX(.3); -ms-transform: scaleX(.3); -o-transform: scaleX(.3); transform: scaleX(.3)}
-.MJXp-scale4 {-webkit-transform: scaleX(.4); -moz-transform: scaleX(.4); -ms-transform: scaleX(.4); -o-transform: scaleX(.4); transform: scaleX(.4)}
-.MJXp-scale5 {-webkit-transform: scaleX(.5); -moz-transform: scaleX(.5); -ms-transform: scaleX(.5); -o-transform: scaleX(.5); transform: scaleX(.5)}
-.MJXp-scale6 {-webkit-transform: scaleX(.6); -moz-transform: scaleX(.6); -ms-transform: scaleX(.6); -o-transform: scaleX(.6); transform: scaleX(.6)}
-.MJXp-scale7 {-webkit-transform: scaleX(.7); -moz-transform: scaleX(.7); -ms-transform: scaleX(.7); -o-transform: scaleX(.7); transform: scaleX(.7)}
-.MJXp-scale8 {-webkit-transform: scaleX(.8); -moz-transform: scaleX(.8); -ms-transform: scaleX(.8); -o-transform: scaleX(.8); transform: scaleX(.8)}
-.MJXp-scale9 {-webkit-transform: scaleX(.9); -moz-transform: scaleX(.9); -ms-transform: scaleX(.9); -o-transform: scaleX(.9); transform: scaleX(.9)}
-.MathJax_PHTML .noError {vertical-align: ; font-size: 90%; text-align: left; color: black; padding: 1px 3px; border: 1px solid}
-</style></head>
-<body style=""><div id="MathJax_Message" style="display: none;"></div>
+    <!-- End of mathjax configuration --></head>
+<body>
   <div tabindex="-1" id="notebook" class="border-box-sizing">
     <div class="container" id="notebook-container">
 
@@ -11871,7 +11775,7 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="In-this-notebook-you-will-find-a-run-through-of-how-you-could-use-the-cljsc2-library-to-interact-with-the-StarCraft-II-AI-API,-we&#39;ll-build-a-base-and-army-and-try-to-defeat-the-built-in-easy-AI!">In this notebook you will find a run-through of how you could use the cljsc2 library to interact with the StarCraft II AI API, we'll build a base and army and try to defeat the built in easy AI!<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#In-this-notebook-you-will-find-a-run-through-of-how-you-could-use-the-cljsc2-library-to-interact-with-the-StarCraft-II-AI-API,-we&#39;ll-build-a-base-and-army-and-try-to-defeat-the-built-in-easy-AI!">¶</a></h2>
+<h2 id="In-this-notebook-you-will-find-a-run-through-of-how-you-could-use-the-cljsc2-library-to-interact-with-the-StarCraft-II-AI-API,-we'll-build-a-base-and-army-and-try-to-defeat-the-built-in-easy-AI!">In this notebook you will find a run-through of how you could use the cljsc2 library to interact with the StarCraft II AI API, we'll build a base and army and try to defeat the built in easy AI!<a class="anchor-link" href="#In-this-notebook-you-will-find-a-run-through-of-how-you-could-use-the-cljsc2-library-to-interact-with-the-StarCraft-II-AI-API,-we'll-build-a-base-and-army-and-try-to-defeat-the-built-in-easy-AI!">&#182;</a></h2>
 </div>
 </div>
 </div>
@@ -11879,7 +11783,7 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Get-all-the-functions-and-data-from-the-core-namespaces-so-we-can-start-a-client-and-connect-to-it:">Get all the functions and data from the core namespaces so we can start a client and connect to it:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#Get-all-the-functions-and-data-from-the-core-namespaces-so-we-can-start-a-client-and-connect-to-it:">¶</a></h3>
+<h3 id="Get-all-the-functions-and-data-from-the-core-namespaces-so-we-can-start-a-client-and-connect-to-it:">Get all the functions and data from the core namespaces so we can start a client and connect to it:<a class="anchor-link" href="#Get-all-the-functions-and-data-from-the-core-namespaces-so-we-can-start-a-client-and-connect-to-it:">&#182;</a></h3>
 </div>
 </div>
 </div>
@@ -11888,9 +11792,9 @@ div#notebook {
 <div class="prompt input_prompt">In&nbsp;[1]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">'cljsc2.clj.core</span><span class="p">)</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">&#39;cljsc2.clj.core</span><span class="p">)</span>
 
-<span class="p">(</span><span class="k">def </span><span class="nv">sc-process</span> <span class="p">(</span><span class="nf">start-client</span> <span class="s">"/home/bb/cljsc2/StarCraftII/Versions/Base59877/SC2_x64"</span><span class="p">))</span>
+<span class="p">(</span><span class="k">def </span><span class="nv">sc-process</span> <span class="p">(</span><span class="nf">start-client</span> <span class="s">&quot;/home/bb/cljsc2/StarCraftII/Versions/Base59877/SC2_x64&quot;</span><span class="p">))</span>
 
 <span class="p">(</span><span class="k">def </span><span class="nv">conn</span> <span class="p">(</span><span class="nf">restart-conn</span><span class="p">))</span>
 </pre></div>
@@ -11911,7 +11815,7 @@ div#notebook {
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>#'user/conn</pre>
+<pre>#&#39;user/conn</pre>
 </div>
 
 </div>
@@ -11924,7 +11828,7 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Get-functions-and-data-for-game-information:">Get functions and data for game information:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#Get-functions-and-data-for-game-information:">¶</a></h3>
+<h3 id="Get-functions-and-data-for-game-information:">Get functions and data for game information:<a class="anchor-link" href="#Get-functions-and-data-for-game-information:">&#182;</a></h3>
 </div>
 </div>
 </div>
@@ -11933,7 +11837,7 @@ div#notebook {
 <div class="prompt input_prompt">In&nbsp;[2]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">'cljsc2.clj.game-parsing</span><span class="p">)</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">&#39;cljsc2.clj.game-parsing</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -11943,7 +11847,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[8]:</div>
+<div class="prompt input_prompt">In&nbsp;[3]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nb">keys </span><span class="nv">knowledge-layout</span><span class="p">)</span>
@@ -11959,7 +11863,7 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[8]:</div>
+<div class="prompt output_prompt">Out[3]:</div>
 
 
 
@@ -11976,7 +11880,7 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[9]:</div>
+<div class="prompt input_prompt">In&nbsp;[4]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nb">get </span><span class="nv">knowledge-layout</span> <span class="ss">:ability-type-attributes</span><span class="p">)</span>
@@ -11992,7 +11896,7 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[9]:</div>
+<div class="prompt output_prompt">Out[4]:</div>
 
 
 
@@ -12011,16 +11915,16 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="The-knowledge-is-stored-in-a-datalog-query-engine-called-datascript:">The knowledge is stored in a datalog query engine called datascript:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#The-knowledge-is-stored-in-a-datalog-query-engine-called-datascript:">¶</a></h3>
+<h3 id="The-knowledge-is-stored-in-a-datalog-query-engine-called-datascript:">The knowledge is stored in a datalog query engine called datascript:<a class="anchor-link" href="#The-knowledge-is-stored-in-a-datalog-query-engine-called-datascript:">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[10]:</div>
+<div class="prompt input_prompt">In&nbsp;[5]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">require</span> <span class="o">'</span><span class="p">[</span><span class="nv">datascript.core</span> <span class="ss">:as</span> <span class="nv">ds</span><span class="p">])</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">require</span> <span class="o">&#39;</span><span class="p">[</span><span class="nv">datascript.core</span> <span class="ss">:as</span> <span class="nv">ds</span><span class="p">])</span>
 </pre></div>
 
 </div>
@@ -12032,16 +11936,16 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="It&#39;s-simple-and-powerful,-it-can-do-relational/logical-reasoning-on-a-set-of-&quot;facts&quot;">It's simple and powerful, it can do relational/logical reasoning on a set of "facts"<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#It&#39;s-simple-and-powerful,-it-can-do-relational/logical-reasoning-on-a-set-of-&quot;facts&quot;">¶</a></h3><h3 id="A-fact-is-a-vector-of-[entity-id-attribute-name-value]">A fact is a vector of [entity-id attribute-name value]<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#A-fact-is-a-vector-of-[entity-id-attribute-name-value]">¶</a></h3>
+<h3 id="It's-simple-and-powerful,-it-can-do-relational/logical-reasoning-on-a-set-of-&quot;facts&quot;">It's simple and powerful, it can do relational/logical reasoning on a set of "facts"<a class="anchor-link" href="#It's-simple-and-powerful,-it-can-do-relational/logical-reasoning-on-a-set-of-&quot;facts&quot;">&#182;</a></h3><h3 id="A-fact-is-a-vector-of-[entity-id-attribute-name-value]">A fact is a vector of [entity-id attribute-name value]<a class="anchor-link" href="#A-fact-is-a-vector-of-[entity-id-attribute-name-value]">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[11]:</div>
+<div class="prompt input_prompt">In&nbsp;[6]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">ds/q</span> <span class="o">'</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?name</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">ds/q</span> <span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?name</span>
         <span class="ss">:where</span>
         <span class="p">[</span><span class="nv">_</span> <span class="ss">:unit-type/name</span> <span class="nv">?name</span><span class="p">]]</span>
       <span class="nv">knowledge-base</span><span class="p">)</span>
@@ -12057,13 +11961,13 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[11]:</div>
+<div class="prompt output_prompt">Out[6]:</div>
 
 
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>#{["Armory"] ["FactoryReactor"] ["Ghost"] ["Raven"] ["StarportFlying"] ["GhostAcademy"] ["StarportTechLab"] ["Starport"] ["SensorTower"] ["MissileTurret"] ["Battlecruiser"] ["CommandCenter"] ["ThorAP"] ["Barracks"] ["WidowMine"] ["Thor"] ["HellionTank"] ["BarracksFlying"] ["BarracksReactor"] ["Bunker"] ["Marine"] ["Hellion"] ["OrbitalCommandFlying"] ["Banshee"] ["SupplyDepot"] ["FactoryFlying"] ["FactoryTechLab"] ["SiegeTank"] ["Cyclone"] ["Liberator"] ["Medivac"] ["PlanetaryFortress"] ["BarracksTechLab"] ["EngineeringBay"] ["MULE"] ["Marauder"] ["OrbitalCommand"] ["FusionCore"] ["CommandCenterFlying"] ["Factory"] ["Reaper"] ["SupplyDepotLowered"] ["Reactor"] ["VikingFighter"] ["Refinery"] ["StarportReactor"] ["SCV"]}</pre>
+<pre>#{[&#34;Armory&#34;] [&#34;FactoryReactor&#34;] [&#34;Ghost&#34;] [&#34;Raven&#34;] [&#34;StarportFlying&#34;] [&#34;GhostAcademy&#34;] [&#34;StarportTechLab&#34;] [&#34;Starport&#34;] [&#34;SensorTower&#34;] [&#34;MissileTurret&#34;] [&#34;Battlecruiser&#34;] [&#34;CommandCenter&#34;] [&#34;ThorAP&#34;] [&#34;Barracks&#34;] [&#34;WidowMine&#34;] [&#34;Thor&#34;] [&#34;HellionTank&#34;] [&#34;BarracksFlying&#34;] [&#34;BarracksReactor&#34;] [&#34;Bunker&#34;] [&#34;Marine&#34;] [&#34;Hellion&#34;] [&#34;OrbitalCommandFlying&#34;] [&#34;Banshee&#34;] [&#34;SupplyDepot&#34;] [&#34;FactoryFlying&#34;] [&#34;FactoryTechLab&#34;] [&#34;SiegeTank&#34;] [&#34;Cyclone&#34;] [&#34;Liberator&#34;] [&#34;Medivac&#34;] [&#34;PlanetaryFortress&#34;] [&#34;BarracksTechLab&#34;] [&#34;EngineeringBay&#34;] [&#34;MULE&#34;] [&#34;Marauder&#34;] [&#34;OrbitalCommand&#34;] [&#34;FusionCore&#34;] [&#34;CommandCenterFlying&#34;] [&#34;Factory&#34;] [&#34;Reaper&#34;] [&#34;SupplyDepotLowered&#34;] [&#34;Reactor&#34;] [&#34;VikingFighter&#34;] [&#34;Refinery&#34;] [&#34;StarportReactor&#34;] [&#34;SCV&#34;]}</pre>
 </div>
 
 </div>
@@ -12074,12 +11978,12 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[13]:</div>
+<div class="prompt input_prompt">In&nbsp;[7]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">clojure.pprint/pprint</span> 
     <span class="p">(</span><span class="nb">take </span><span class="mi">5</span> <span class="p">(</span><span class="nf">ds/q</span> 
-                <span class="o">'</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?name</span> <span class="nv">?minerals</span> <span class="nv">?vespene</span> <span class="nv">?build-time</span>
+                <span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?name</span> <span class="nv">?minerals</span> <span class="nv">?vespene</span> <span class="nv">?build-time</span>
                   <span class="ss">:where</span>
                   <span class="p">[</span><span class="nv">?unit-e-id</span> <span class="ss">:unit-type/name</span> <span class="nv">?name</span><span class="p">]</span>
                   <span class="p">[</span><span class="nv">?unit-e-id</span> <span class="ss">:unit-type/mineral-cost</span> <span class="nv">?minerals</span><span class="p">]</span>
@@ -12102,11 +12006,11 @@ div#notebook {
 
 
 <div class="output_subarea output_stream output_stdout output_text">
-<pre>(["BarracksTechLab" 50 25 400.0]
- ["FactoryTechLab" 50 25 400.0]
- ["Medivac" 100 100 672.0]
- ["EngineeringBay" 125 0 560.0]
- ["Raven" 100 200 960.0])
+<pre>([&#34;BarracksTechLab&#34; 50 25 400.0]
+ [&#34;FactoryTechLab&#34; 50 25 400.0]
+ [&#34;Medivac&#34; 100 100 672.0]
+ [&#34;EngineeringBay&#34; 125 0 560.0]
+ [&#34;Raven&#34; 100 200 960.0])
 </pre>
 </div>
 </div>
@@ -12119,17 +12023,17 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Queries-can-take-arguments,-so-you-could-create-functions-using-it:">Queries can take arguments, so you could create functions using it:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#Queries-can-take-arguments,-so-you-could-create-functions-using-it:">¶</a></h3>
+<h3 id="Queries-can-take-arguments,-so-you-could-create-functions-using-it:">Queries can take arguments, so you could create functions using it:<a class="anchor-link" href="#Queries-can-take-arguments,-so-you-could-create-functions-using-it:">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[14]:</div>
+<div class="prompt input_prompt">In&nbsp;[8]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="kd">defn </span><span class="nv">get-abilities-for-unit-name</span> <span class="p">[</span><span class="nv">unit-name</span><span class="p">]</span>
-  <span class="p">(</span><span class="nf">ds/q</span> <span class="o">'</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?ability-id</span> <span class="nv">?ability-name</span>
+  <span class="p">(</span><span class="nf">ds/q</span> <span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?ability-id</span> <span class="nv">?ability-name</span>
           <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">?unit-name</span>
           <span class="ss">:where</span>
           <span class="p">[</span><span class="nv">?unit-type-e-id</span> <span class="ss">:unit-type/name</span> <span class="nv">?unit-name</span><span class="p">]</span>
@@ -12139,7 +12043,7 @@ div#notebook {
         <span class="nv">knowledge-base</span>
         <span class="nv">unit-name</span><span class="p">))</span>
 
-<span class="p">(</span><span class="nf">get-abilities-for-unit-name</span> <span class="s">"Marine"</span><span class="p">)</span>
+<span class="p">(</span><span class="nf">get-abilities-for-unit-name</span> <span class="s">&quot;Marine&quot;</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -12152,13 +12056,13 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[14]:</div>
+<div class="prompt output_prompt">Out[8]:</div>
 
 
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>#{[380 "Effect Stim Marine"] [1 "Smart"] [17 "Patrol"] [16 "Move"] [4 "Stop Stop"] [18 "HoldPosition"] [23 "Attack Attack"]}</pre>
+<pre>#{[380 &#34;Effect Stim Marine&#34;] [1 &#34;Smart&#34;] [17 &#34;Patrol&#34;] [16 &#34;Move&#34;] [4 &#34;Stop Stop&#34;] [18 &#34;HoldPosition&#34;] [23 &#34;Attack Attack&#34;]}</pre>
 </div>
 
 </div>
@@ -12171,13 +12075,13 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="I-find-having-a-query-system-like-this-on-the-static-data-of-the-API-is-quite-powerful.-But-it-doesn&#39;t-end-with-just-the-static-data!">I find having a query system like this on the static data of the API is quite powerful. But it doesn't end with just the static data!<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#I-find-having-a-query-system-like-this-on-the-static-data-of-the-API-is-quite-powerful.-But-it-doesn&#39;t-end-with-just-the-static-data!">¶</a></h3><h3 id="We-can-run-the-game-and-turn-the-game-observations-into-this-facts-format-to-query-runtime-data!">We can run the game and turn the game observations into this facts format to query runtime data!<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#We-can-run-the-game-and-turn-the-game-observations-into-this-facts-format-to-query-runtime-data!">¶</a></h3>
+<h3 id="I-find-having-a-query-system-like-this-on-the-static-data-of-the-API-is-quite-powerful.-But-it-doesn't-end-with-just-the-static-data!">I find having a query system like this on the static data of the API is quite powerful. But it doesn't end with just the static data!<a class="anchor-link" href="#I-find-having-a-query-system-like-this-on-the-static-data-of-the-API-is-quite-powerful.-But-it-doesn't-end-with-just-the-static-data!">&#182;</a></h3><h3 id="We-can-run-the-game-and-turn-the-game-observations-into-this-facts-format-to-query-runtime-data!">We can run the game and turn the game observations into this facts format to query runtime data!<a class="anchor-link" href="#We-can-run-the-game-and-turn-the-game-observations-into-this-facts-format-to-query-runtime-data!">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[29]:</div>
+<div class="prompt input_prompt">In&nbsp;[9]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">send-request-and-get-response-message</span>
@@ -12186,12 +12090,12 @@ div#notebook {
    <span class="p">{</span><span class="ss">:create-game</span> <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$RequestCreateGame</span>
     <span class="p">{</span><span class="ss">:map</span> <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$LocalMap</span>
      <span class="p">{</span><span class="ss">:local-map</span>
-      <span class="p">{</span><span class="ss">:map-path</span> <span class="s">"/home/bb/cljsc2/StarCraftII/Maps/Simple64.SC2Map"</span><span class="p">}}</span>
+      <span class="p">{</span><span class="ss">:map-path</span> <span class="s">&quot;/home/bb/cljsc2/StarCraftII/Maps/Simple64.SC2Map&quot;</span><span class="p">}}</span>
      <span class="ss">:player-setup</span>
      <span class="p">[</span><span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$PlayerSetup</span>
-      <span class="p">{</span><span class="ss">:race</span> <span class="s">"Terran"</span> <span class="ss">:type</span> <span class="s">"Participant"</span><span class="p">}</span>
+      <span class="p">{</span><span class="ss">:race</span> <span class="s">&quot;Terran&quot;</span> <span class="ss">:type</span> <span class="s">&quot;Participant&quot;</span><span class="p">}</span>
       <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$PlayerSetup</span>
-      <span class="p">{</span><span class="ss">:race</span> <span class="s">"Protoss"</span> <span class="ss">:type</span> <span class="s">"Computer"</span><span class="p">}]}})</span>
+      <span class="p">{</span><span class="ss">:race</span> <span class="s">&quot;Protoss&quot;</span> <span class="ss">:type</span> <span class="s">&quot;Computer&quot;</span><span class="p">}]}})</span>
 
 <span class="p">(</span><span class="nf">send-request-and-get-response-message</span>
    <span class="nv">conn</span>
@@ -12200,7 +12104,7 @@ div#notebook {
     <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$RequestJoinGame</span>
     <span class="p">{</span><span class="ss">:participation</span>
      <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$RequestJoinGame</span>
-     <span class="p">{</span><span class="ss">:race</span> <span class="s">"Terran"</span><span class="p">}</span>
+     <span class="p">{</span><span class="ss">:race</span> <span class="s">&quot;Terran&quot;</span><span class="p">}</span>
      <span class="ss">:options</span> <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$InterfaceOptions</span>
      <span class="p">{</span><span class="ss">:raw</span> <span class="nv">true</span>
       <span class="ss">:feature-layer</span> <span class="o">#</span><span class="ss">:SC2APIProtocol.sc2api$SpatialCameraSetup</span>
@@ -12226,7 +12130,7 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[29]:</div>
+<div class="prompt output_prompt">Out[9]:</div>
 
 
 
@@ -12245,13 +12149,13 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="After-creating-and-joining-a-game-we-can-run-actions-in-the-game-and-run-for-x-amount-of-steps">After creating and joining a game we can run actions in the game and run for x amount of steps<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#After-creating-and-joining-a-game-we-can-run-actions-in-the-game-and-run-for-x-amount-of-steps">¶</a></h3><h3 id="Now-we-capture-the-observation-data-in-a-variable-in-the-step-function:">Now we capture the observation data in a variable in the step function:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#Now-we-capture-the-observation-data-in-a-variable-in-the-step-function:">¶</a></h3>
+<h3 id="After-creating-and-joining-a-game-we-can-run-actions-in-the-game-and-run-for-x-amount-of-steps">After creating and joining a game we can run actions in the game and run for x amount of steps<a class="anchor-link" href="#After-creating-and-joining-a-game-we-can-run-actions-in-the-game-and-run-for-x-amount-of-steps">&#182;</a></h3><h3 id="Now-we-capture-the-observation-data-in-a-variable-in-the-step-function:">Now we capture the observation data in a variable in the step function:<a class="anchor-link" href="#Now-we-capture-the-observation-data-in-a-variable-in-the-step-function:">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="prompt input_prompt">In&nbsp;[10]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span> <span class="nv">conn</span>
@@ -12271,13 +12175,13 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[18]:</div>
+<div class="prompt output_prompt">Out[10]:</div>
 
 
 
 
 <div class="output_text output_subarea output_execute_result">
-<pre>[#object[clojure.lang.PersistentVector$TransientVector 0x7d9558a5 "clojure.lang.PersistentVector$TransientVector@7d9558a5"] nil]</pre>
+<pre>[#object[clojure.lang.PersistentVector$TransientVector 0x6f6bcf38 &#34;clojure.lang.PersistentVector$TransientVector@6f6bcf38&#34;] nil]</pre>
 </div>
 
 </div>
@@ -12290,22 +12194,22 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="Say-we-would-like-to-build-an-SCV-worker-unit,-cljsc2-provides-a-rule:">Say we would like to build an SCV worker unit, cljsc2 provides a rule:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#Say-we-would-like-to-build-an-SCV-worker-unit,-cljsc2-provides-a-rule:">¶</a></h3><h3 id="(can-build-?name-?ability-id-?builder)">(can-build ?name ?ability-id ?builder)<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#(can-build-?name-?ability-id-?builder)">¶</a></h3><h3 id="We-give-the-current-game-observation-data-facts-and-have-the-query-engine-figure-out-all-the-possibilities:">We give the current game observation data facts and have the query engine figure out all the possibilities:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#We-give-the-current-game-observation-data-facts-and-have-the-query-engine-figure-out-all-the-possibilities:">¶</a></h3>
+<h3 id="Say-we-would-like-to-build-an-SCV-worker-unit,-cljsc2-provides-a-rule:">Say we would like to build an SCV worker unit, cljsc2 provides a rule:<a class="anchor-link" href="#Say-we-would-like-to-build-an-SCV-worker-unit,-cljsc2-provides-a-rule:">&#182;</a></h3><h3 id="(can-build-?name-?ability-id-?builder)">(can-build ?name ?ability-id ?builder)<a class="anchor-link" href="#(can-build-?name-?ability-id-?builder)">&#182;</a></h3><h3 id="We-give-the-current-game-observation-data-facts-and-have-the-query-engine-figure-out-all-the-possibilities:">We give the current game observation data facts and have the query engine figure out all the possibilities:<a class="anchor-link" href="#We-give-the-current-game-observation-data-facts-and-have-the-query-engine-figure-out-all-the-possibilities:">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="prompt input_prompt">In&nbsp;[11]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">'cljsc2.clj.rules</span><span class="p">)</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">&#39;cljsc2.clj.rules</span><span class="p">)</span>
 
-<span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">unit-name</span> <span class="s">"SCV"</span>
+<span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">unit-name</span> <span class="s">&quot;SCV&quot;</span>
       <span class="nv">observation-facts</span> <span class="p">(</span><span class="nf">ds/db-with</span>
                          <span class="nv">knowledge-base</span>
                          <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
-      <span class="nv">builder-query</span> <span class="o">'</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder</span> <span class="nv">?ability-id</span>
+      <span class="nv">builder-query</span> <span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder</span> <span class="nv">?ability-id</span>
                       <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
                       <span class="ss">:where</span>
                       <span class="p">(</span><span class="nf">can-build</span> <span class="nv">?name</span> <span class="nv">?ability-id</span> <span class="nv">?builder</span><span class="p">)]</span>
@@ -12326,7 +12230,7 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[20]:</div>
+<div class="prompt output_prompt">Out[11]:</div>
 
 
 
@@ -12345,13 +12249,13 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="The-unit-tag-and-the-ability-id-that-we-would-need-to-build-a-worker-SCV!">The unit tag and the ability id that we would need to build a worker SCV!<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#The-unit-tag-and-the-ability-id-that-we-would-need-to-build-a-worker-SCV!">¶</a></h3>
+<h3 id="The-unit-tag-and-the-ability-id-that-we-would-need-to-build-a-worker-SCV!">The unit tag and the ability id that we would need to build a worker SCV!<a class="anchor-link" href="#The-unit-tag-and-the-ability-id-that-we-would-need-to-build-a-worker-SCV!">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[23]:</div>
+<div class="prompt input_prompt">In&nbsp;[12]:</div>
 <div class="inner_cell">
     <div class="input_area">
 <div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="mi">4313841665</span><span class="p">]</span> <span class="mi">524</span><span class="p">)</span>
@@ -12367,7 +12271,7 @@ div#notebook {
 
 <div class="output_area">
 
-<div class="prompt output_prompt">Out[23]:</div>
+<div class="prompt output_prompt">Out[12]:</div>
 
 
 
@@ -12386,21 +12290,16 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h3 id="To-actually-execute-actions-ingame-we-return-a-collection-of-these-actions-in-from-the-stepping-function:">To actually execute actions ingame we return a collection of these actions in from the stepping function:<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#To-actually-execute-actions-ingame-we-return-a-collection-of-these-actions-in-from-the-stepping-function:">¶</a></h3>
+<h3 id="To-actually-execute-actions-ingame-we-return-a-collection-of-these-actions-in-from-the-stepping-function:">To actually execute actions ingame we return a collection of these actions in from the stepping function:<a class="anchor-link" href="#To-actually-execute-actions-ingame-we-return-a-collection-of-these-actions-in-from-the-stepping-function:">&#182;</a></h3>
 </div>
 </div>
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="prompt input_prompt">In&nbsp;[13]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
-        <span class="nv">conn</span>
-        <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">_</span><span class="p">]</span>
-            <span class="p">[(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="mi">4313841665</span><span class="p">]</span> <span class="mi">524</span><span class="p">)])</span>
-        <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">100</span><span class="p">)</span>
-         <span class="ss">:collect-observations</span> <span class="nv">true</span><span class="p">})</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">&#39;cljsc2.clj.rendering</span><span class="p">)</span>
 </pre></div>
 
 </div>
@@ -12410,10 +12309,15 @@ div#notebook {
 </div>
 <div class="cell border-box-sizing code_cell rendered">
 <div class="input">
-<div class="prompt input_prompt">In&nbsp;[6]:</div>
+<div class="prompt input_prompt">In&nbsp;[14]:</div>
 <div class="inner_cell">
     <div class="input_area">
-<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">use</span> <span class="ss">'cljsc2.clj.rendering</span><span class="p">)</span>
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">_</span><span class="p">]</span>
+   <span class="p">[(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="mi">4313841665</span><span class="p">]</span> <span class="mi">524</span><span class="p">)])</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="nv">true</span><span class="p">})</span>
 </pre></div>
 
 </div>
@@ -12425,16 +12329,513 @@ div#notebook {
 </div>
 <div class="inner_cell">
 <div class="text_cell_render border-box-sizing rendered_html">
-<h2 id="Will-continue-notebook-when-I-fix-video-display.">Will continue notebook when I fix video display.<a class="anchor-link" href="file:///Users/baruchberger/Downloads/Untitled3.html#Will-continue-notebook-when-I-fix-video-display.">¶</a></h2>
+<video 
+  autoplay
+  loop
+  src="5000 - 1516532225208.mp4"
+  controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Let-it-run-for-a-bit-to-collect-minerals.">Let it run for a bit to collect minerals.<a class="anchor-link" href="#Let-it-run-for-a-bit-to-collect-minerals.">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[&nbsp;]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">_</span> <span class="nv">_</span><span class="p">]</span>
+   <span class="p">[])</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">300</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="nv">true</span><span class="p">})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<video 
+autoplay
+loop
+src="5000 - 1516532384058.mp4"
+controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Here-we-do-the-same-but-for-a-supply-depot,-it-also-needs-a-location-to-be-built-at,-so-we-find-the-command-centers-coordinates-and-build-it-3-world-units-right-of-the-command-center.">Here we do the same but for a supply depot, it also needs a location to be built at, so we find the command centers coordinates and build it 3 world units right of the command center.<a class="anchor-link" href="#Here-we-do-the-same-but-for-a-supply-depot,-it-also-needs-a-location-to-be-built-at,-so-we-find-the-command-centers-coordinates-and-build-it-3-world-units-right-of-the-command-center.">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[16]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">connection</span><span class="p">]</span>
+   <span class="p">[(</span><span class="k">let </span><span class="p">[</span><span class="nv">unit-name</span> <span class="s">&quot;SupplyDepot&quot;</span>
+          <span class="nv">observation-facts</span> <span class="p">(</span><span class="nf">ds/db-with</span>
+                             <span class="nv">knowledge-base</span>
+                             <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
+          <span class="nv">builder-build-action</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder</span> <span class="nv">?ability-id</span>
+                                     <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                                     <span class="ss">:where</span>
+                                     <span class="p">(</span><span class="nf">can-build</span> <span class="nv">?name</span> <span class="nv">?ability-id</span> <span class="nv">?builder</span><span class="p">)</span>
+                                     <span class="p">]</span>
+                                   <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                                         <span class="nv">can-build-rule</span>
+                                         <span class="nv">unit-name</span><span class="p">))</span>
+          <span class="p">[</span><span class="nv">builder-unit-tag</span> <span class="nv">ability-id</span><span class="p">]</span> <span class="p">(</span><span class="nb">first </span><span class="nv">builder-build-action</span><span class="p">)</span>
+          <span class="p">[</span><span class="nv">x</span> <span class="nv">y</span><span class="p">]</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?x</span> <span class="nv">?y</span>
+                      <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                      <span class="ss">:where</span>
+                      <span class="p">(</span><span class="nf">units-of-type</span> <span class="nv">?name</span> <span class="nv">?command-center-id</span><span class="p">)</span>
+                      <span class="p">[</span><span class="nv">?command-center-id</span> <span class="ss">:unit/x</span> <span class="nv">?x</span><span class="p">]</span>
+                      <span class="p">[</span><span class="nv">?command-center-id</span> <span class="ss">:unit/y</span> <span class="nv">?y</span><span class="p">]</span>
+                      <span class="p">]</span>
+                    <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                          <span class="nv">units-of-type-rule</span>
+                          <span class="s">&quot;CommandCenter&quot;</span><span class="p">)</span>
+                    <span class="nv">first</span><span class="p">)</span>
+          <span class="p">]</span>
+      <span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">builder-unit-tag</span><span class="p">]</span> <span class="nv">ability-id</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">x</span> <span class="mi">3</span><span class="p">)</span> <span class="nv">y</span> <span class="p">{}))]</span>
+   <span class="p">)</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="nv">true</span><span class="p">})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+<div class="prompt output_prompt">Out[16]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>[#object[clojure.lang.PersistentVector$TransientVector 0x6956511d &#34;clojure.lang.PersistentVector$TransientVector@6956511d&#34;] nil]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<video 
+autoplay
+loop
+src="5000 - 1516530550836.mp4"
+controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Give-it-time-to-get-some-minerals-for-a-bunch-of-barracks,-and-while-we're-at-it-build-some-extra-workers:">Give it time to get some minerals for a bunch of barracks, and while we're at it build some extra workers:<a class="anchor-link" href="#Give-it-time-to-get-some-minerals-for-a-bunch-of-barracks,-and-while-we're-at-it-build-some-extra-workers:">&#182;</a></h3><h4 id="to-make-sure-the-command-centers-only-add-one-worker-to-the-queue-we-check-that-they-have-less-than-2-orders">to make sure the command centers only add one worker to the queue we check that they have less than 2 orders<a class="anchor-link" href="#to-make-sure-the-command-centers-only-add-one-worker-to-the-queue-we-check-that-they-have-less-than-2-orders">&#182;</a></h4>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[17]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">_</span><span class="p">]</span>
+   <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">rules</span> <span class="p">(</span><span class="nb">concat </span><span class="nv">can-build-rule</span>
+                       <span class="nv">has-order-or-nil-order-rule</span><span class="p">)</span>
+         <span class="nv">facts</span> <span class="p">(</span><span class="nf">ds/db-with</span> <span class="nv">knowledge-base</span>
+                           <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
+         <span class="nv">builders</span> <span class="p">(</span><span class="nf">ds/q</span> <span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder-unit-tag</span> <span class="nv">?ability-id</span> <span class="p">(</span><span class="nb">count </span><span class="nv">?order</span><span class="p">)</span>
+                          <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?unit-name</span>
+                          <span class="ss">:where</span>
+                          <span class="p">(</span><span class="nf">can-build</span> <span class="nv">?unit-name</span> <span class="nv">?ability-id</span> <span class="nv">?builder-unit-tag</span><span class="p">)</span>
+                          <span class="p">(</span><span class="nf">has-order-or-nil-order</span> <span class="nv">?builder-unit-tag</span> <span class="nv">?order</span><span class="p">)</span>
+                          <span class="p">]</span>
+                        <span class="nv">facts</span>
+                        <span class="nv">rules</span>
+                        <span class="s">&quot;SCV&quot;</span><span class="p">)]</span>
+     <span class="p">(</span><span class="nf">-&gt;&gt;</span> <span class="nv">builders</span>
+          <span class="p">(</span><span class="nb">filter </span><span class="p">(</span><span class="k">fn </span><span class="p">[[</span><span class="nv">unit-tag</span> <span class="nv">ability-id</span> <span class="nv">order-count</span><span class="p">]]</span>
+                    <span class="p">(</span><span class="nb">&lt; </span><span class="nv">order-count</span> <span class="mi">2</span><span class="p">)))</span>
+          <span class="p">(</span><span class="nb">map </span><span class="p">(</span><span class="k">fn </span><span class="p">[[</span><span class="nv">unit-tag</span> <span class="nv">ability-id</span> <span class="nv">_</span><span class="p">]]</span>
+                 <span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">unit-tag</span><span class="p">]</span> <span class="nv">ability-id</span><span class="p">))))))</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1200</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="ss">:yes-please</span><span class="p">})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<video 
+autoplay
+loop
+src="5000 - 1516532775389.mp4"
+controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="We-saved-up-enough-for-three-barracks,-let-us-build-them!">We saved up enough for three barracks, let us build them!<a class="anchor-link" href="#We-saved-up-enough-for-three-barracks,-let-us-build-them!">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[18]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">connection</span><span class="p">]</span>
+   <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">unit-name</span> <span class="s">&quot;Barracks&quot;</span>
+         <span class="nv">observation-facts</span> <span class="p">(</span><span class="nf">ds/db-with</span>
+                            <span class="nv">knowledge-base</span>
+                            <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
+         <span class="nv">builder-build-action</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder-tag</span> <span class="nv">?ability-id</span>
+                                    <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                                    <span class="ss">:where</span>
+                                    <span class="p">(</span><span class="nf">can-build</span> <span class="nv">?name</span> <span class="nv">?ability-id</span> <span class="nv">?builder-tag</span><span class="p">)</span>
+                                    <span class="p">]</span>
+                                  <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                                        <span class="nv">can-build-rule</span>
+                                        <span class="nv">unit-name</span><span class="p">))</span>
+         <span class="p">[</span><span class="nv">supply-depot-x</span> <span class="nv">supply-depot-y</span><span class="p">]</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?x</span> <span class="nv">?y</span>
+                                               <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                                               <span class="ss">:where</span>
+                                               <span class="p">(</span><span class="nf">units-of-type</span> <span class="nv">?name</span> <span class="nv">?unit-id</span><span class="p">)</span>
+                                               <span class="p">[</span><span class="nv">?unit-id</span> <span class="ss">:unit/x</span> <span class="nv">?x</span><span class="p">]</span>
+                                               <span class="p">[</span><span class="nv">?unit-id</span> <span class="ss">:unit/y</span> <span class="nv">?y</span><span class="p">]</span>
+                                               <span class="p">]</span>
+                                             <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                                                   <span class="nv">units-of-type-rule</span>
+                                                   <span class="s">&quot;SupplyDepot&quot;</span><span class="p">)</span>
+                                             <span class="nv">first</span><span class="p">)</span>
+         <span class="p">]</span>
+     <span class="p">(</span><span class="nf">map-indexed</span> <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">i</span> <span class="p">[</span><span class="nv">builder-unit-tag</span> <span class="nv">ability-id</span><span class="p">]]</span>
+                    <span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">builder-unit-tag</span><span class="p">]</span>
+                                       <span class="nv">ability-id</span>
+                                       <span class="p">(</span><span class="nb">+ </span><span class="nv">supply-depot-x</span> <span class="mi">3</span><span class="p">)</span>
+                                       <span class="p">(</span><span class="nb">+ </span><span class="nv">supply-depot-y</span> <span class="p">(</span><span class="nb">* </span><span class="mi">3</span> <span class="nv">i</span><span class="p">))</span>
+                                       <span class="p">{}))</span>
+                  <span class="p">(</span><span class="nb">take </span><span class="mi">3</span> <span class="nv">builder-build-action</span><span class="p">)))</span>
+   <span class="p">)</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1</span><span class="p">)})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+<div class="prompt output_prompt">Out[18]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>[#object[clojure.lang.PersistentVector$TransientVector 0x7cc81f49 &#34;clojure.lang.PersistentVector$TransientVector@7cc81f49&#34;] nil]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Let's-keep-on-building-scv's-and-start-building-marines!">Let's keep on building scv's and start building marines!<a class="anchor-link" href="#Let's-keep-on-building-scv's-and-start-building-marines!">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[19]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="kd">defn </span><span class="nv">build-thing</span> <span class="p">[</span><span class="nv">observation</span> <span class="nv">thing-name</span><span class="p">]</span>
+  <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">rules</span> <span class="p">(</span><span class="nb">concat </span><span class="nv">can-build-rule</span>
+                      <span class="nv">has-order-or-nil-order-rule</span><span class="p">)</span>
+        <span class="nv">facts</span> <span class="p">(</span><span class="nf">ds/db-with</span> <span class="nv">knowledge-base</span>
+                          <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
+        <span class="nv">builders</span> <span class="p">(</span><span class="nf">ds/q</span> <span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder-unit-tag</span> <span class="nv">?ability-id</span> <span class="p">(</span><span class="nb">count </span><span class="nv">?order</span><span class="p">)</span>
+                         <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?unit-name</span>
+                         <span class="ss">:where</span>
+                         <span class="p">(</span><span class="nf">can-build</span> <span class="nv">?unit-name</span> <span class="nv">?ability-id</span> <span class="nv">?builder-unit-tag</span><span class="p">)</span>
+                         <span class="p">(</span><span class="nf">has-order-or-nil-order</span> <span class="nv">?builder-unit-tag</span> <span class="nv">?order</span><span class="p">)</span>
+                         <span class="p">]</span>
+                       <span class="nv">facts</span>
+                       <span class="nv">rules</span>
+                       <span class="nv">thing-name</span><span class="p">)]</span>
+    <span class="p">(</span><span class="nf">-&gt;&gt;</span> <span class="nv">builders</span>
+         <span class="p">(</span><span class="nb">filter </span><span class="p">(</span><span class="k">fn </span><span class="p">[[</span><span class="nv">unit-tag</span> <span class="nv">ability-id</span> <span class="nv">order-count</span><span class="p">]]</span>
+                   <span class="p">(</span><span class="nb">&lt; </span><span class="nv">order-count</span> <span class="mi">2</span><span class="p">)))</span>
+         <span class="p">(</span><span class="nb">map </span><span class="p">(</span><span class="k">fn </span><span class="p">[[</span><span class="nv">unit-tag</span> <span class="nv">ability-id</span> <span class="nv">_</span><span class="p">]]</span>
+                <span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">unit-tag</span><span class="p">]</span> <span class="nv">ability-id</span><span class="p">))))))</span>
+
+<span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">_</span><span class="p">]</span>
+   <span class="p">(</span><span class="nb">concat </span><span class="p">(</span><span class="nf">build-thing</span> <span class="nv">observation</span> <span class="s">&quot;SCV&quot;</span><span class="p">)</span>
+           <span class="p">(</span><span class="nf">build-thing</span> <span class="nv">observation</span> <span class="s">&quot;Marine&quot;</span><span class="p">)))</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1200</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="ss">:uhu</span><span class="p">})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<video 
+autoplay
+loop
+src="5000 - 1516533270677.mp4"
+controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="We're-getting-close-to-supply-capped,-so-lets-make-some-more-Supply-Depots">We're getting close to supply capped, so lets make some more Supply Depots<a class="anchor-link" href="#We're-getting-close-to-supply-capped,-so-lets-make-some-more-Supply-Depots">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[20]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">connection</span><span class="p">]</span>
+   <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">unit-name</span> <span class="s">&quot;SupplyDepot&quot;</span>
+         <span class="nv">observation-facts</span> <span class="p">(</span><span class="nf">ds/db-with</span>
+                            <span class="nv">knowledge-base</span>
+                            <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
+         <span class="nv">builder-build-action</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?builder</span> <span class="nv">?ability-id</span>
+                                    <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                                    <span class="ss">:where</span>
+                                    <span class="p">(</span><span class="nf">can-build</span> <span class="nv">?name</span> <span class="nv">?ability-id</span> <span class="nv">?builder</span><span class="p">)</span>
+                                    <span class="p">]</span>
+                                  <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                                        <span class="nv">can-build-rule</span>
+                                        <span class="nv">unit-name</span><span class="p">))</span>
+         <span class="p">[</span><span class="nv">builder-unit-tag</span> <span class="nv">ability-id</span><span class="p">]</span> <span class="p">(</span><span class="nb">first </span><span class="nv">builder-build-action</span><span class="p">)</span>
+         <span class="p">[</span><span class="nv">x</span> <span class="nv">y</span><span class="p">]</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="nv">?x</span> <span class="nv">?y</span>
+                     <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                     <span class="ss">:where</span>
+                     <span class="p">(</span><span class="nf">units-of-type</span> <span class="nv">?name</span> <span class="nv">?command-center-id</span><span class="p">)</span>
+                     <span class="p">[</span><span class="nv">?command-center-id</span> <span class="ss">:unit/x</span> <span class="nv">?x</span><span class="p">]</span>
+                     <span class="p">[</span><span class="nv">?command-center-id</span> <span class="ss">:unit/y</span> <span class="nv">?y</span><span class="p">]</span>
+                     <span class="p">]</span>
+                   <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                         <span class="nv">units-of-type-rule</span>
+                         <span class="s">&quot;CommandCenter&quot;</span><span class="p">)</span>
+                   <span class="nv">first</span><span class="p">)</span>
+         <span class="p">]</span>
+     <span class="p">[(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">builder-unit-tag</span><span class="p">]</span> <span class="nv">ability-id</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">x</span> <span class="mi">3</span><span class="p">)</span> <span class="p">(</span><span class="nb">- </span><span class="nv">y</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span><span class="ss">:queue-command</span> <span class="nv">true</span><span class="p">})</span>
+      <span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">builder-unit-tag</span><span class="p">]</span> <span class="nv">ability-id</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">x</span> <span class="mi">3</span><span class="p">)</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">y</span> <span class="mi">2</span><span class="p">)</span> <span class="p">{</span><span class="ss">:queue-command</span> <span class="nv">true</span><span class="p">})</span>
+      <span class="p">(</span><span class="nf">ability-to-action</span> <span class="p">[</span><span class="nv">builder-unit-tag</span><span class="p">]</span> <span class="nv">ability-id</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">x</span> <span class="mi">3</span><span class="p">)</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">y</span> <span class="mi">4</span><span class="p">)</span> <span class="p">{</span><span class="ss">:queue-command</span> <span class="nv">true</span><span class="p">})])</span>
+   <span class="p">)</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1</span><span class="p">)})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+<div class="output_wrapper">
+<div class="output">
+
+
+<div class="output_area">
+
+<div class="prompt output_prompt">Out[20]:</div>
+
+
+
+
+<div class="output_text output_subarea output_execute_result">
+<pre>[#object[clojure.lang.PersistentVector$TransientVector 0x3690cf34 &#34;clojure.lang.PersistentVector$TransientVector@3690cf34&#34;] nil]</pre>
+</div>
+
+</div>
+
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="Build-more-scvs-and-marines.">Build more scvs and marines.<a class="anchor-link" href="#Build-more-scvs-and-marines.">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[21]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">_</span><span class="p">]</span>
+   <span class="p">(</span><span class="nb">concat </span><span class="p">(</span><span class="nf">build-thing</span> <span class="nv">observation</span> <span class="s">&quot;SCV&quot;</span><span class="p">)</span>
+           <span class="p">(</span><span class="nf">build-thing</span> <span class="nv">observation</span> <span class="s">&quot;Marine&quot;</span><span class="p">)))</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">1200</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="ss">:yup</span><span class="p">})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<video 
+autoplay
+loop
+src="5000 - 1516533770106.mp4"
+controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="We-should-have-enough-to-teach-this-protoss-enemy-a-lesson!-We-send-our-marines-to-attack-at-the-bottom-of-the-map-with-the-attack-ability-(id-23-as-shown-at-step-8-in-this-notebook)">We should have enough to teach this protoss enemy a lesson! We send our marines to attack at the bottom of the map with the attack ability (id 23 as shown at step 8 in this notebook)<a class="anchor-link" href="#We-should-have-enough-to-teach-this-protoss-enemy-a-lesson!-We-send-our-marines-to-attack-at-the-bottom-of-the-map-with-the-attack-ability-(id-23-as-shown-at-step-8-in-this-notebook)">&#182;</a></h3>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing code_cell rendered">
+<div class="input">
+<div class="prompt input_prompt">In&nbsp;[22]:</div>
+<div class="inner_cell">
+    <div class="input_area">
+<div class=" highlight hl-clojure"><pre><span></span><span class="p">(</span><span class="nf">do-sc2</span>
+ <span class="nv">conn</span>
+ <span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">observation</span> <span class="nv">connection</span><span class="p">]</span>
+   <span class="p">(</span><span class="k">let </span><span class="p">[</span><span class="nv">unit-name</span> <span class="s">&quot;Marine&quot;</span>
+         <span class="nv">observation-facts</span> <span class="p">(</span><span class="nf">ds/db-with</span>
+                            <span class="nv">knowledge-base</span>
+                            <span class="p">(</span><span class="nf">obs-&gt;facts</span> <span class="nv">observation</span><span class="p">))</span>
+         <span class="p">[</span><span class="nv">avg-x</span> <span class="nv">avg-y</span><span class="p">]</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="p">[(</span><span class="nf">avg</span> <span class="nv">?x</span><span class="p">)</span> <span class="p">(</span><span class="nf">avg</span> <span class="nv">?y</span><span class="p">)]</span>
+                             <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                             <span class="ss">:where</span>
+                             <span class="p">(</span><span class="nf">units-of-type</span> <span class="nv">?name</span> <span class="nv">?marine-e-id</span><span class="p">)</span>
+                             <span class="p">[</span><span class="nv">?marine-e-id</span> <span class="ss">:unit/x</span> <span class="nv">?x</span><span class="p">]</span>
+                             <span class="p">[</span><span class="nv">?marine-e-id</span> <span class="ss">:unit/y</span> <span class="nv">?y</span><span class="p">]</span>
+                             <span class="p">]</span>
+                           <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                                 <span class="nv">units-of-type-rule</span>
+                                 <span class="nv">unit-name</span><span class="p">))</span>
+         <span class="nv">marine-unit-tags</span> <span class="p">(</span><span class="nb">-&gt; </span><span class="o">&#39;</span><span class="p">[</span><span class="ss">:find</span> <span class="p">[</span><span class="nv">?unit-tag</span> <span class="nv">...</span><span class="p">]</span>
+                                <span class="ss">:in</span> <span class="nv">$</span> <span class="nv">%</span> <span class="nv">?name</span>
+                                <span class="ss">:where</span>
+                                <span class="p">(</span><span class="nf">units-of-type</span> <span class="nv">?name</span> <span class="nv">?unit-tag</span><span class="p">)</span>
+                                <span class="p">]</span>
+                              <span class="p">(</span><span class="nf">ds/q</span> <span class="nv">observation-facts</span>
+                                    <span class="nv">units-of-type-rule</span>
+                                    <span class="nv">unit-name</span><span class="p">))]</span>
+     <span class="p">(</span><span class="nb">map </span><span class="p">(</span><span class="k">fn </span><span class="p">[</span><span class="nv">unit-tag</span><span class="p">]</span> <span class="p">(</span><span class="nf">ability-to-action</span> <span class="nv">unit-tag</span> <span class="mi">23</span> <span class="p">(</span><span class="nb">+ </span><span class="nv">avg-x</span> <span class="mi">15</span><span class="p">)</span> <span class="p">(</span><span class="nb">- </span><span class="nv">avg-y</span> <span class="mi">50</span><span class="p">)</span> <span class="p">{}))</span>
+           <span class="nv">marine-unit-tags</span><span class="p">))</span>
+   <span class="p">)</span>
+ <span class="p">{</span><span class="ss">:run-until-fn</span> <span class="p">(</span><span class="nf">run-for</span> <span class="mi">300</span><span class="p">)</span>
+  <span class="ss">:collect-observations</span> <span class="nv">true</span><span class="p">})</span>
+</pre></div>
+
+</div>
+</div>
+</div>
+
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<video 
+autoplay
+loop
+src="5000 - 1516534218586.mp4"
+controls></video>
+</div>
+</div>
+</div>
+<div class="cell border-box-sizing text_cell rendered"><div class="prompt input_prompt">
+</div>
+<div class="inner_cell">
+<div class="text_cell_render border-box-sizing rendered_html">
+<h3 id="I-haven't-yet-implemented-camera-action-follow-features,-but-trust-me-when-I-say-these-marines-win-the-immensely-difficult-easy-built-in-AI-protoss..">I haven't yet implemented camera action follow features, but trust me when I say these marines win the immensely difficult easy built in AI protoss..<a class="anchor-link" href="#I-haven't-yet-implemented-camera-action-follow-features,-but-trust-me-when-I-say-these-marines-win-the-immensely-difficult-easy-built-in-AI-protoss..">&#182;</a></h3>
 </div>
 </div>
 </div>
     </div>
   </div>
-
+</body>
 
  
 
 
-
-</body></html>
+</html>
