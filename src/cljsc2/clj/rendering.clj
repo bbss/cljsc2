@@ -36,7 +36,8 @@
      (encode
       (->> observations
            (map (comp render-observation->buffered-image :map :render-data)))
-      {:filename filename}))))
+      {:filename filename})
+     {:filename filename})))
 
 (defn to-base64 [file-path]
   (byte-streams/to-string
@@ -44,9 +45,12 @@
     (byte-streams/to-byte-array (clojure.java.io/File. file-path))
     :base64 {:url-safe? false})))
 
-(defn run-result->mp4-file-path [run-result]
-  (->> run-result
-       first
-       persistent!
-       ((partial observations->mp4 5000))
-       :file-name))
+(defn run-result->mp4-file-path
+  ([run-result]
+   (run-result->mp4-file-path run-result 5000))
+  ([run-result port]
+   (->> run-result
+        first
+        persistent!
+        ((partial observations->mp4 port))
+        :file-name)))

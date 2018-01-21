@@ -147,11 +147,10 @@
     {:actions
      [action]}}))
 
-(defn request-step
-  ([connection]
-   (send-request-and-get-response-message
-    connection
-    #:SC2APIProtocol.sc2api$RequestStep{:step {:count 22}})))
+(defn request-step [connection stepsize]
+  (send-request-and-get-response-message
+   connection
+   #:SC2APIProtocol.sc2api$RequestStep{:step {:count stepsize}}))
 
 (defn load-mineral-game
   ([connection]
@@ -244,10 +243,12 @@
   ([connection step-fn {:keys [collect-actions
                                collect-observations
                                use-datalog-observation
+                               stepsize
                                run-until-fn]
                         :or {collect-actions false
                              collect-observations false
-                             run-until-fn (run-for 500)}}]
+                             run-until-fn (run-for 500)
+                             stepsize 1}}]
    (flush-incoming-responses connection)
    (let [loops (atom 0)
          observations-transient (transient [])
@@ -274,7 +275,7 @@
               {:action #:SC2APIProtocol.sc2api$RequestAction
                {:actions
                 step-actions}})
-             (request-step connection)
+             (request-step connection stepsize)
              (let [after-obs (send-request-and-get-response-message
                               connection
                               #:SC2APIProtocol.sc2api$RequestObservation
