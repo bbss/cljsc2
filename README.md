@@ -10,7 +10,7 @@ https://bbss.github.io/cljsc2/
 
 If you're new to StarCraft II or Clojure development and would like to use this library please don't be shy to ask for help by making an issue or sending me a mail at baruchberger@gmail.com.
 
-- Install Clojure (for example via [leiningen](https://leiningen.org/)
+- Install Clojure (for example via [leiningen](https://leiningen.org/))
 
 - [Install StarCraft II](https://eu.shop.battle.net/en-gb/family/starcraft-ii)
 
