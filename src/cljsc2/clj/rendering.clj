@@ -1,14 +1,12 @@
 (ns cljsc2.clj.rendering
   (:require
-   [cljsc2.clj.core :as core]
    [manifold.stream :as s :refer [stream]]
    [clojure.data :refer [diff]]
-   [datascript.core :as ds]
+   [clojupyter.misc.display :as display]
    [clojure.spec.alpha :as spec]
    [telegenic.core :refer [encode]]
    [byte-transforms :as byte-tf]
-   [byte-streams :as byte-streams]
-   )
+   [byte-streams :as byte-streams])
   (:import
    java.awt.image.BufferedImage
    java.awt.image.DataBuffer
@@ -53,4 +51,12 @@
         first
         persistent!
         ((partial observations->mp4 port))
-        :file-name)))
+        :filename)))
+
+(defn mp4-file-path->markdown-html [file-path]
+  (display/make-markdown (str "
+<video
+autoplay
+loop
+src=\"" file-path "\"
+controls></video>")))

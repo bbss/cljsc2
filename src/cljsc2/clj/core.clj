@@ -237,6 +237,10 @@
    connection
    #:SC2APIProtocol.sc2api$RequestObservation{:observation {}}))
 
+(defn get-port [conn]
+  (let [conn-ip (:remote-address (:connection (.description (.sink conn))))]
+    (subs conn-ip (inc (clojure.string/last-index-of conn-ip ":")))))
+
 (defn do-sc2
   ([connection step-fn]
    (do-sc2 connection step-fn {}))
@@ -244,46 +248,52 @@
                                collect-observations
                                use-datalog-observation
                                stepsize
-                               run-until-fn]
+                               run-until-fn
+                               to-markdown]
                         :or {collect-actions false
                              collect-observations false
                              run-until-fn (run-for 500)
-                             stepsize 1}}]
+                             stepsize 1
+                             to-markdown false}}]
    (flush-incoming-responses connection)
-   (let [loops (atom 0)
-         observations-transient (transient [])
-         actions-transient (transient [])
-         initial-observation (request-observation connection)
-         run-until-pred (run-until-fn (get-in initial-observation
-                                              [:observation :observation]))]
-     (loop [req-observation initial-observation
-            observations observations-transient
-            actions actions-transient]
-       (let [actual-observation (get-in req-observation
-                                        [:observation :observation])
-             observation actual-observation
-             ended? (or (identical? (:status req-observation) :ended)
-                        (run-until-pred observation @loops))
-             step-actions (step-fn observation connection)]
-         (swap! loops inc)
-         (if (and (not ended?)
-                  step-actions)
-           (do
-             (send-request-and-get-response-message
-              connection
-              #:SC2APIProtocol.sc2api$RequestAction
-              {:action #:SC2APIProtocol.sc2api$RequestAction
-               {:actions
-                step-actions}})
-             (request-step connection stepsize)
-             (let [after-obs (send-request-and-get-response-message
-                              connection
-                              #:SC2APIProtocol.sc2api$RequestObservation
-                              {:observation {}})]
-               (recur after-obs
-                      (if collect-observations
-                        (conj! observations observation)
-                        observations)
-                      (if collect-actions
-                        (conj! actions step-actions)))))
-           [observations actions]))))))
+   (let [run-result
+         (let [loops (atom 0)
+               observations-transient (transient [])
+               actions-transient (transient [])
+               initial-observation (request-observation connection)
+               run-until-pred (run-until-fn (get-in initial-observation
+                                                    [:observation :observation]))]
+           (loop [req-observation initial-observation
+                  observations observations-transient
+                  actions actions-transient]
+             (let [actual-observation (get-in req-observation
+                                              [:observation :observation])
+                   observation actual-observation
+                   ended? (or (identical? (:status req-observation) :ended)
+                              (run-until-pred observation @loops))
+                   step-actions (step-fn observation connection)]
+               (swap! loops inc)
+               (if (and (not ended?)
+                        step-actions)
+                 (do
+                   (send-request-and-get-response-message
+                    connection
+                    #:SC2APIProtocol.sc2api$RequestAction
+                    {:action #:SC2APIProtocol.sc2api$RequestAction
+                     {:actions
+                      step-actions}})
+                   (request-step connection stepsize)
+                   (let [after-obs (send-request-and-get-response-message
+                                    connection
+                                    #:SC2APIProtocol.sc2api$RequestObservation
+                                    {:observation {}})]
+                     (recur after-obs
+                            (if collect-observations
+                              (conj! observations observation)
+                              observations)
+                            (if collect-actions
+                              (conj! actions step-actions)))))
+                 [observations actions]))))]
+     (if to-markdown
+       (mp4-file-path->markdown-html (run-result->mp4-file-path run-result (get-port connection)))
+       run-result))))

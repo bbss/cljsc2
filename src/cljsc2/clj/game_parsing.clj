@@ -495,16 +495,3 @@
    (clojure.string/join "\n")
    (println)
    ))
-
-(comment
-  (def sc-process (core/start-client))
-  (def conn (core/restart-conn))
-
-  (core/load-simple-map conn)
-  (core/do-sc2
-   conn
-   (fn [observation connection]
-     (def obs observation)
-     (create-actions knowledge-base strategies observation connection))
-   {:run-until-fn (core/run-for 5000)})
-  )

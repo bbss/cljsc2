@@ -35,7 +35,8 @@
                  [thinktopic/think.image "0.4.17-SNAPSHOT"]
                  [http-kit "2.3.0-alpha4"]
                  [datascript-transit "0.2.2"]
-                 [byte-transforms "0.1.5-alpha1"]]
+                 [byte-transforms "0.1.5-alpha1"]
+                 [org.clojars.didiercrunch/clojupyter "0.1.3"]]
 
   :plugins [[lein-figwheel "0.5.12"]
             [cider/cider-nrepl "0.17.0-SNAPSHOT"]
