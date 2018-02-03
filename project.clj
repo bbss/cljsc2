@@ -6,7 +6,7 @@
 
   :min-lein-version "2.7.1"
 
-  :dependencies [[org.clojure/clojure "1.9.0-beta3"]
+  :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]
                  [org.clojure/core.async  "0.3.443"
                   :exclusions [org.clojure/tools.reader]]
@@ -41,7 +41,7 @@
             [cider/cider-nrepl "0.17.0-SNAPSHOT"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-environ "1.1.0"]
-            [lein-jupyter "0.1.8"]]
+            [lein-jupyter "0.1.14"]]
 
   :java-source-paths ["SC2APIProtocol"]
 
