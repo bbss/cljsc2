@@ -12,7 +12,6 @@
    :json
    {:handlers {"literal-byte-string" (fn [it] it)}}))
 
-
 (def feature-layer-types
   [:creep
    :height-map
@@ -81,19 +80,6 @@
 
 (defonce app-state (atom {}))
 
-(defn create-canvas [feature-layer-name width height]
-  (let [canvas (js/document.createElement "canvas")
-        div (js/document.createElement "div")
-        feature-layer-name-div (js/document.createElement "div")]
-    (set! (.-innerHTML feature-layer-name-div) (str feature-layer-name))
-    (set! (.-height canvas) height)
-    (set! (.-width canvas) width)
-    (set! (.-id canvas) (str feature-layer-name "-" width "-" height))
-    (.appendChild (js/document.querySelector "#app") div)
-    (.appendChild div feature-layer-name-div)
-    (.appendChild div canvas)
-    canvas))
-
 (declare msg)
 
 (defn to-colored-clamped-arr [from-arr to-arr-size scale]
@@ -112,95 +98,42 @@
           (recur (inc i) (+ d 4))
           to-arr)))))
 
-(declare to-canvas)
+(def uint8->binary js/uint8toBinaryString)
 
-#_(do (do (reset! app-state {})
-        (set! (.-innerHTML (js/document.querySelector "#app")) ""))
-    ((defn to-canvas [state feature-layer-name {:keys [data bits-per-pixel size]}
-                      scale to-resolution]
-       (swap! state update-in [feature-layer-name to-resolution]
-              (fn [canvas]
-                (let [canvas (if canvas
-                               canvas
-                               (create-canvas feature-layer-name
-                                              (* 4 (:x size))
-                                              (* 4 (:y size))))
-                      data (case bits-per-pixel
-                             1 (.split (js/uint8toBinaryString data) "")
-                             8 data
-                             32 (js/str2ab32 (js/uint8toBinaryString data))
-                             [])
-                      arr-size (* 4 (:x size) (:y size))
-                      image-width (:x size)
-                      image-height (:y size)]
-                  (.then
-                   (js/createImageBitmap
-                    (js/ImageData.
-                     (to-colored-clamped-arr
-                      data
-                      arr-size
-                      scale)
-                     image-width image-height))
-                   (fn [img]
-                     (.putImageData (.getContext canvas "2d")
-                                    (js/ImageData.
-                                     (to-colored-clamped-arr
-                                      data
-                                      arr-size
-                                      scale)
-                                     image-width image-height) 0 0)))
-                  canvas))))
+(def binary->ab32 js/str2ab32)
 
-     app-state
-     :unit-type
-     (->> msg
-          :renders
-          :unit-type)
-     (get feature-layer-draw-descriptions :unit-type)
-     [336 336]))
-
-(defn to-canvas [state feature-layer-name {:keys [data bits-per-pixel size]}
-                      scale to-resolution]
-       (swap! state update-in [feature-layer-name to-resolution]
-              (fn [canvas]
-                (let [canvas (if canvas
-                               canvas
-                               (create-canvas feature-layer-name
-                                              (first to-resolution)
-                                              (second to-resolution)))
-                      data (case bits-per-pixel
-                             1 (.split (js/uint8toBinaryString data) "")
-                             8 data
-                             32 (js/str2ab32 (js/uint8toBinaryString data))
-                             [])
-                      arr-size (* 4 (:x size) (:y size))
-                      image-width (:x size)
-                      image-height (:y size)
-                      ctx (.getContext canvas "2d")]
-                  (set! (.-fillStyle ctx) "white")
-                  (.fillRect ctx 0 0 (first to-resolution) (second to-resolution))
-                  (.then
-                   (js/createImageBitmap
-                    (js/ImageData.
-                     (to-colored-clamped-arr
-                      data
-                      arr-size
-                      scale)
-                     image-width image-height))
-                   (fn [img-data]
-                     (.drawImage ctx
-                                 img-data 0 0 (first to-resolution) (second to-resolution))))
-                  canvas))))
+(defn render-canvas [canvas feature-layer-name {:keys [data bits-per-pixel size]}
+                     scale to-resolution is-rgb]
+  (let [arr-size (* 4 (:x size) (:y size))
+        image-width (:x size)
+        image-height (:y size)
+        ctx (.getContext canvas "2d")
+        image-p (js/createImageBitmap
+                 (js/ImageData.
+                  (if is-rgb
+                    data
+                    (to-colored-clamped-arr
+                             data
+                             arr-size
+                             scale))
+                  image-width image-height))
+        render-cb (fn [img-data]
+                    (.drawImage ctx
+                                img-data 0 0 (first to-resolution) (second to-resolution)))]
+    (set! (.-fillStyle ctx) "white")
+    (.fillRect ctx 0 0 (first to-resolution) (second to-resolution))
+    [image-p render-cb]))
 
 (defn handle-incoming-message [e]
   (let [message (.-data e)]
     (def msg (transit/read reader message))
+    (print "e" "Message")
     (doall
      (map
       (fn [feature-layer-name]
         (when (get (:renders msg) feature-layer-name)
           (let [{:keys [data bits-per-pixel size]} (get (:renders msg) feature-layer-name)]
-            (to-canvas
+            (comment to-canvas
              app-state
              feature-layer-name
              (get (:renders msg) feature-layer-name)
@@ -208,9 +141,3 @@
              [336 336])
             )))
       feature-layer-types))))
-
-(defonce es
-  (doto (js/EventSource. (str "/sub"))
-    (.addEventListener
-     "message"
-     handle-incoming-message)))

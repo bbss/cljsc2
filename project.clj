@@ -8,26 +8,28 @@
 
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]
-                 [org.clojure/core.async  "0.3.443"
-                  :exclusions [org.clojure/tools.reader]]
+                 [fulcrologic/fulcro "2.4.2"]
+                 [org.clojure/core.async  "0.3.443"]
                  [org.clojure/core.logic "0.8.11"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
+                 [binaryage/chromex "0.5.15"]
                  [aleph "0.4.4"]
                  [im.chit/lucid.mind "1.3.13"]
                  [instaparse "1.4.7"]
                  [org.clojure/test.check "0.10.0-alpha2"]
+                 [hawk "0.2.11"]
                  [im.chit/hara.string.case "2.5.10"]
                  [im.chit/hara.zip "2.5.10"]
                  [me.raynes/conch "0.8.0"]
                  [com.grammarly/perseverance "0.1.2"]
-                 [com.cognitect/transit-cljs "0.8.239"]
+                 [com.cognitect/transit-cljs "0.8.243"]
                  [cljs-ajax "0.7.2"]
-                 [yada "1.2.9" :exclusions [[aleph]]]
                  [manifold "0.1.7-alpha5"]
                  [byte-streams "0.2.4-alpha3"]
-                 [cljsjs/d3 "4.3.0-5"]
+                 [cljsjs/d3 "4.12.0-0"]
                  [thinktopic/cortex "0.9.22"]
                  [com.taoensso/nippy "2.14.0-alpha1"]
+                 [com.taoensso/sente "1.12.0"]
                  [environ "1.1.0"]
                  [datascript "0.16.2"]
                  [net.mikera/telegenic "0.0.1"]
@@ -36,20 +38,40 @@
                  [http-kit "2.3.0-alpha4"]
                  [datascript-transit "0.2.2"]
                  [byte-transforms "0.1.5-alpha1"]
-                 [org.clojars.didiercrunch/clojupyter "0.1.3"]]
+                 [ring "1.6.3"]
+                 [ring/ring-defaults "0.3.1"]
+                 [compojure "1.5.1"]
+                 [clojupyter "0.2.1-SNAPSHOT" :exclusions [org.clojure/tools.reader]]]
 
-  :plugins [[lein-figwheel "0.5.12"]
-            [cider/cider-nrepl "0.17.0-SNAPSHOT"]
+  :plugins [[lein-figwheel "0.5.14"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-environ "1.1.0"]
             [lein-jupyter "0.1.14"]]
 
   :java-source-paths ["SC2APIProtocol"]
 
-  #_:jvm-opts #_["--add-modules" "java.xml.bind"] ;;for java9
+  :jvm-opts ["--add-modules" "java.xml.bind"] ;;for java9
 
   :cljsbuild {:builds
               [{:id "dev"
+                :source-paths ["src/cljsc2/cljs"]
+
+                ;; The presence of a :figwheel configuration here
+                ;; will cause figwheel to inject the figwheel client
+                ;; into your build
+
+                :figwheel {:on-jsload "cljsc2.cljs.content-script.core/on-js-reload"}
+                :compiler {:main cljsc2.cljs.content-script
+                           :optimizations :none
+                           :asset-path "compiled/"
+                           :output-to "resources/unpacked/compiled/content-script.js"
+                           :output-dir "resources/unpacked/compiled/"
+                           :source-map-timestamp true
+                           ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
+                           ;; https://github.com/binaryage/cljs-devtools
+                                        ; ctrl-f is the default keystroke
+                           :preloads [devtools.preload]}}
+               #_{:id "dev"
                 :source-paths ["src/cljsc2/cljs"]
 
                 ;; The presence of a :figwheel configuration here
@@ -127,14 +149,16 @@
   :profiles {:dev {:env {:proto-grammar "resources/proto.ebnf"
                          :proto-dir "resources/s2clientprotocol/"}
                    :dependencies [[binaryage/devtools "0.9.4"]
-                                  [figwheel-sidecar "0.5.12"]
-                                  [com.cemerick/piggieback "0.2.2"]]
+                                  [figwheel-sidecar "0.5.14"]
+                                  [com.cemerick/piggieback "0.2.2"]
+                                  [org.clojure/tools.nrepl "0.2.10"]]
                    ;; need to add dev source path here to get user.clj loaded
                    :source-paths ["src/cljsc2/cljs"
                                   "dev"]
                    ;; for CIDER
-                   ;; :plugins [[cider/cider-nrepl "0.12.0"]]
+                   ;;:plugins [[cider/cider-nrepl "0.16.0"]]
                    :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
                    ;; need to add the compliled assets to the :clean-targets
                    :clean-targets ^{:protect false} ["resources/public/js/compiled"
+                                                     "resources/unpacked/compiled/"
                                                      :target-path]}})

@@ -7,6 +7,7 @@
    [me.raynes.conch.low-level :as sh]
    [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]]
    [cljsc2.clj.proto :refer [ugly-memo-make-protobuf]]
+   [cljsc2.clj.rendering :refer [mp4-file-path->markdown-html run-result->mp4-file-path]]
    ))
 
 (defn to-byte [it]
@@ -16,8 +17,8 @@
   (s/put! connection
           (to-byte
            (ugly-memo-make-protobuf
-                   #:SC2APIProtocol.sc2api$Request
-                   {:request request}))))
+            #:SC2APIProtocol.sc2api$Request
+            {:request request}))))
 
 (defn quit [connection]
   (send-request
@@ -33,15 +34,16 @@
 
 (defn restart-conn
   ([] (restart-conn "127.0.0.1" 5000))
-  ([host port] (restart-conn (str "ws://" host ":" port "/sc2api")))
-  ([client-address]
-   (p/retry {:strategy (p/constant-retry-strategy 2000 10)}
-     (p/retriable
-         {}
-         (let [connection @(http/websocket-client client-address
+  ([host port] (restart-conn host port 20))
+  ([host port timeout]
+   (let [address (str "ws://" host ":" port "/sc2api")]
+     (p/retry {:strategy (p/constant-retry-strategy 2000 timeout)}
+       (p/retriable
+           {}
+         (let [connection @(http/websocket-client address
                                                   {:max-frame-payload 998524288})]
-           (s/on-closed connection (fn [] (println client-address "connection closed")))
-           connection)))))
+           (s/on-closed connection (fn [] (println address "connection closed")))
+           connection))))))
 
 (defn max-version [path]
   (reduce max (map (fn [f] (Integer/parseInt (subs f 4)))
@@ -93,6 +95,12 @@
            :buffer-size)
        0)
     (s/take! connection)))
+
+(defn conn-closed? [connection]
+  (-> connection
+      s/description
+      :sink
+      :closed?))
 
 (defn response-message [connection]
   (let [res (response connection)]
@@ -152,6 +160,7 @@
    connection
    #:SC2APIProtocol.sc2api$RequestStep{:step {:count stepsize}}))
 
+;;todo add path to lein env
 (defn load-mineral-game
   ([connection]
    (load-mineral-game
@@ -221,6 +230,50 @@
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
          }
+        :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
+        }}}))))
+
+(defn load-map
+  ([connection] (load-map connection "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"))
+  ([connection path]
+   (d/chain
+    (send-request
+     connection
+     #:SC2APIProtocol.sc2api$RequestCreateGame
+     {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
+      {:map #:SC2APIProtocol.sc2api$LocalMap
+       {:local-map
+        {:map-path path}}
+       :player-setup
+       [#:SC2APIProtocol.sc2api$PlayerSetup
+        {:race "Terran" :type "Participant"}
+        #:SC2APIProtocol.sc2api$PlayerSetup
+        {:race "Protoss" :type "Computer"}]}})
+
+    (send-request
+     connection
+     #:SC2APIProtocol.sc2api$RequestJoinGame
+     {:join-game
+      #:SC2APIProtocol.sc2api$RequestJoinGame
+      {:participation
+       #:SC2APIProtocol.sc2api$RequestJoinGame
+       {:race "Terran"}
+       :options #:SC2APIProtocol.sc2api$InterfaceOptions
+       {:raw true
+        :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
+        :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
         }}}))))
 
 (defn run-for [n]
@@ -249,12 +302,18 @@
                                use-datalog-observation
                                stepsize
                                run-until-fn
-                               to-markdown]
+                               to-markdown
+                               additional-listening-fns
+                               run-ended-cb
+                               game-ended-cb]
                         :or {collect-actions false
                              collect-observations false
                              run-until-fn (run-for 500)
                              stepsize 1
-                             to-markdown false}}]
+                             to-markdown false
+                             run-ended-cb (fn [game-loop])
+                             game-ended-cb (fn [game-loop])
+                             additional-listening-fns []}}]
    (flush-incoming-responses connection)
    (let [run-result
          (let [loops (atom 0)
@@ -269,11 +328,13 @@
              (let [actual-observation (get-in req-observation
                                               [:observation :observation])
                    observation actual-observation
-                   ended? (or (identical? (:status req-observation) :ended)
-                              (run-until-pred observation @loops))
+                   game-ended (identical? (:status req-observation) :ended)
+                   run-ended? (or game-ended
+                                  (run-until-pred observation @loops))
                    step-actions (step-fn observation connection)]
                (swap! loops inc)
-               (if (and (not ended?)
+               (when game-ended (game-ended-cb @loops))
+               (if (and (not run-ended?)
                         step-actions)
                  (do
                    (send-request-and-get-response-message
@@ -283,6 +344,8 @@
                      {:actions
                       step-actions}})
                    (request-step connection stepsize)
+                   (doall (map (fn [listener] (listener observation step-actions))
+                               additional-listening-fns))
                    (let [after-obs (send-request-and-get-response-message
                                     connection
                                     #:SC2APIProtocol.sc2api$RequestObservation
@@ -292,8 +355,10 @@
                               (conj! observations observation)
                               observations)
                             (if collect-actions
-                              (conj! actions step-actions)))))
-                 [observations actions]))))]
+                              (conj! actions step-actions)
+                              actions))))
+                 (do (run-ended-cb @loops)
+                     [observations actions])))))]
      (if to-markdown
        (mp4-file-path->markdown-html (run-result->mp4-file-path run-result (get-port connection)))
        run-result))))
