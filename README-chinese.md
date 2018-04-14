@@ -1,4 +1,5 @@
-# cljsc2 [English](README.md)
+# cljsc2 
+[English](README.md)
 `cljsc2`可以使用clojure来和星际争霸2游戏进行交互。
 
 它为每个星际2暴露出来的接口生成 clojure.spec specifications 然后使用 protobuf 和 websocket 来运行客户端。
