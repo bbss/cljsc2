@@ -7,6 +7,7 @@
    [me.raynes.conch.low-level :as sh]
    [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]]
    [cljsc2.clj.proto :refer [ugly-memo-make-protobuf]]
+   [cljsc2.clj.rendering :refer [mp4-file-path->markdown-html run-result->mp4-file-path]]
    ))
 
 (defn to-byte [it]

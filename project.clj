@@ -46,7 +46,7 @@
 
   :java-source-paths ["SC2APIProtocol"]
 
-  #_:jvm-opts #_["--add-modules" "java.xml.bind"] ;;for java9
+  :jvm-opts ["--add-modules" "java.xml.bind"] ;;for java9
 
   :cljsbuild {:builds
               [{:id "dev"
