@@ -8,7 +8,7 @@
 
   :dependencies [[org.clojure/clojure "1.9.0"]
                  [org.clojure/clojurescript "1.9.946"]
-                 [fulcrologic/fulcro "2.4.2"]
+                 [fulcrologic/fulcro "2.5.2"]
                  [org.clojure/core.async  "0.3.443"]
                  [org.clojure/core.logic "0.8.11"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]

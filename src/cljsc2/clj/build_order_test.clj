@@ -27,37 +27,6 @@
    ;; make sure build x command does not stack
    ))
 
-(cljsc2.clj.core/send-action-and-get-response
- conn
- #:SC2APIProtocol.sc2api$Action
- {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-  {:action #:SC2APIProtocol.spatial$ActionSpatial
-   {:unit-selection-rect #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionRect
-    {:selection-screen-coord
-     [#:SC2APIProtocol.common$RectangleI
-      {:p0 #:SC2APIProtocol.common$PointI{:x 0 :y 0}
-       :p1 #:SC2APIProtocol.common$PointI{:x 100 :y 100}}
-      ]
-     }
-    }}})
-
-(send-action-and-get-response
- conn
- #:SC2APIProtocol.sc2api$Action
- {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-  {:action #:SC2APIProtocol.spatial$ActionSpatial
-   {:unit-selection-point #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionPoint
-    {:selection-screen-coord #:SC2APIProtocol.common$PointI{:x 27 :y 62}
-     :type "Select"}}}})
-
-(send-action-and-get-response
- conn
- #:SC2APIProtocol.sc2api$Action{:action-render #:SC2APIProtocol.spatial$ActionSpatial{:action #:SC2APIProtocol.spatial$ActionSpatial{:unit-selection-rect #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionRect{:selection-screen-coord [#:SC2APIProtocol.common$RectangleI{:p0 #:SC2APIProtocol.common$PointI{:x 28.666666666666668, :y 64.37946428571429}, :p1 #:SC2APIProtocol.common$PointI{:x 0, :y 0}}], :selection-add true}}}})
-
-(request-step conn 1)
-
-(quit conn)
-
 (comment
   :scv build one scv
   (build :scvs)
@@ -70,3 +39,30 @@
   (rally barracks)
 
   (attack-at 50 supp))
+
+
+;;Let's make some useful abstractions for creating a basic rule based AI
+;;We need a system that can operate on some basic heuristics like
+;;"build workers"
+;;"build an army"
+;;"prioritize workers over army until x per base have been built"
+;;We further want to considers certain potential inefficiencies such as
+;;using up resources unusefully (like having many built units in a queue)
+;;There are more heuristics that we'll talk about later, let's first think of
+;;a system that can do these.
+;;In AI research there is the concept of classical planning. Which talks about:
+;; - The state of an environment.
+;; - Actions that are possible in this environment.
+;; - The results the actions have on the state when made (called effects)
+;; - The requirements and costs for an action.
+;; - A goal to reach
+;;With this information a planner algorithm has all it needs to search for a
+;;desirable resulting state.
+;;Let's pick the example of building a marine.
+;;The state of the world we can pick in this case from the raw data of the game.
+;;The potential actions we'll hand-pick and we'll write a function to consider its effects and costs.
+
+(def plan (atom {}))
+
+((defn build [build-unit-type]
+   (let [])))
