@@ -5,6 +5,8 @@
    [me.raynes.conch.low-level :as sh]
    [cljsc2.cljc.model :as model]
    cljsc2.clj.core
+   cljsc2.clj.game-parsing
+   [datascript.transit :as dst]
    [hawk.core :as hawk]
    [cheshire.core :as cheshire]
    [clojure.string :refer [lower-case includes?]]
@@ -47,6 +49,8 @@
 (declare ws)
 (declare server-db)
 
+(defn uuid [] (java.util.UUID/randomUUID))
+
 (defn add-observation [server-db port run-id observation]
   (let [id (str port " - " run-id " - " (System/currentTimeMillis))
         ident-path [:observation/by-id id]
@@ -77,6 +81,12 @@
         (recur (not (.isAlive (:process process))))))
     process-closed))
 
+(defn add-run-config [server-db ident-path new-config process-ident-path]
+  (swap! server-db assoc-in ident-path new-config)
+  (doseq [id (:any @(:connected-uids ws))]
+    (push ws id :run-config-added {:run-config new-config
+                                   :process-ident process-ident-path})))
+
 (defn add-process [server-db ident-path new-process]
   (swap! server-db #(-> %
                         (assoc-in ident-path new-process)
@@ -94,21 +104,33 @@
   (doseq [id (:any @(:connected-uids ws))]
     (push ws id :process-died [:process/by-id port])))
 
+(def run-config-id (atom 0))
+
+(defn next-run-config-id []
+  (swap! run-config-id inc))
+
 (defn new-process [server-db port]
   (let [process (cljsc2.clj.core/start-client
-                 (str "/Applications/StarCraft II/Versions/Base"
-                      (cljsc2.clj.core/max-version "/Applications/StarCraft II/Versions/")
-                      "/SC2.app/Contents/MacOS/SC2")
+                 (cljsc2.clj.core/default-sc-path)
                  "127.0.0.1"
                  port)]
     (go (let [closed (<!! (process-closing-chan process))]
+          (timbre/debug "process closed" port)
           (remove-process server-db port)))
-    (do (let [ident-path [:process/by-id port]
+    (do (let [process-ident-path [:process/by-id port]
+              config-id (next-run-config-id)
+              config-ident-path [:run-config/by-id config-id]
               new-process {:process/process process
                            :process/port port
                            :db/id port
-                           :process/runs []}]
-          (add-process server-db ident-path new-process)))
+                           :process/run-config config-ident-path
+                           :process/runs []}
+              new-run-config {:run-config/run-size 160
+                              :run-config/step-size 16
+                              :run-config/restart-on-episode-end true
+                              :db/id config-id}]
+          (add-process server-db process-ident-path new-process)
+          (add-run-config server-db config-ident-path new-run-config process-ident-path)))
     process))
 
 (defn new-conn [server-db port]
@@ -135,12 +157,32 @@
               :in-game))
 
 (defn run-ended [server-db run-id port]
-  (fn [game-loop]
+  (fn [game-loop run-loop]
     (let [ident-path [:run/by-id run-id]]
-      (swap! server-db assoc-in (conj ident-path :run/ended-at) game-loop)
+      (swap! server-db assoc-in (conj ident-path :run/ended-at)
+             game-loop)
+      (swap! server-db (fn [s]
+                         (let [observation-ident-paths (-> (get-in s (conj ident-path :run/observations))
+                                                           reverse
+                                                           rest)]
+                           (-> (reduce (fn [s [path key]]
+                                         (update s path (fn [observations]
+                                                          (dissoc observations key))))
+                                       s observation-ident-paths)
+                               (update-in (conj ident-path :run/observations)
+                                          (comp vector last))))))
       (doseq [id (:any @(:connected-uids ws))]
         (push ws id :run-ended {:ident-path ident-path
                                 :ended-at game-loop})))))
+
+(defn run-started [server-db run-id port]
+  (fn [game-loop]
+    (let [ident-path [:run/by-id run-id]]
+      (swap! server-db assoc-in (conj ident-path :run/started-at)
+             game-loop)
+      (doseq [id (:any @(:connected-uids ws))]
+        (push ws id :run-started {:ident-path ident-path
+                                  :started-at game-loop})))))
 
 (defn add-game-info [server-db port]
   (let [ident-path [:process/by-id port]
@@ -153,20 +195,74 @@
                                     :attr :process/game-info
                                     :value game-info}))))
 
+(defn update-process-run-config [server-db process-ident-path run-config-path]
+  (swap! server-db assoc-in (conj process-ident-path :process/run-config) run-config-path))
+
 (defn add-run [server-db port]
   (let [existing-ids (or (keys (:run/by-id @server-db)) [0])
         id (inc (apply max existing-ids))
         ident-path [:run/by-id id]
+        new-run-config-id (next-run-config-id)
+        latest-run-config-id (apply max (or (keys (:run-config/by-id @server-db)) [0]))
         new-run {:run/observations []
-                 :db/id id}]
+                 :run/run-config [:run-config/by-id latest-run-config-id]
+                 :db/id id}
+        new-run-config (merge (get-in @server-db [:run-config/by-id latest-run-config-id])
+                              {:db/id new-run-config-id})
+        ]
     (swap! server-db #(-> %
                           (assoc-in ident-path new-run)
                           (prim/integrate-ident ident-path
                                                 :append
                                                 [:process/by-id port :process/runs])))
+    (add-run-config server-db
+                    [:run-config/by-id new-run-config-id]
+                    new-run-config
+                    [:process/by-id port])
+    (update-process-run-config server-db [:process/by-id port] [:run-config/by-id new-run-config-id])
     (doseq [id (:any @(:connected-uids ws))]
-      (push ws id :run-added {:run new-run :process-id port}))
+      (push ws id :run-added
+            {:run (merge new-run {:run/run-config new-run-config})
+             :process-id port}))
     new-run))
+
+(defn load-new-game [process-conn run-map-config]
+  (do (println "Loading map..")
+      (cljsc2.clj.core/load-map process-conn run-map-config)
+      (Thread/sleep 10000)
+      (cljsc2.clj.core/flush-incoming-responses process-conn)))
+
+(defn run-on-conn [server-db port process-conn agent-fn step-size run-for-steps]
+  (let [run (add-run server-db port)
+        ready? (ready-for-actions? process-conn)
+        restart-on-episode-end (get-in @server-db (conj (:run/run-config run) :run-config/restart-on-episode-end))]
+    (when-not ready? (do (load-new-game process-conn (val (first (:map-config/by-id @server-db))))
+                         (add-game-info server-db port)))
+    (let [run-result
+          (cljsc2.clj.core/do-sc2
+           process-conn
+           agent-fn
+           {:stepsize step-size
+            :run-until-fn (cljsc2.clj.core/run-for run-for-steps)
+            :run-for-steps run-for-steps
+            :additional-listening-fns [(fn [observation connection]
+                                         (add-observation server-db port (:db/id run) observation))]
+            :run-started-cb (run-started server-db (:db/id run) port)
+            :run-ended-cb (run-ended server-db (:db/id run) port)})
+          {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?]} (nth run-result 2)]
+      (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
+      (if restart-on-episode-end
+        (if (and game-ended? (not run-ended?))
+          (concat [run-result] (run-on-conn server-db port process-conn agent-fn step-size
+                                            (- run-for-steps ran-for-steps)))
+          [run-result])
+        [run-result]))))
+
+
+(defn do-run-code [server-db code port run-for step-size restart-on-episode]
+  (let [process-conn (get-conn server-db port)
+        agent-fn (eval (read-string code))]
+    (run-on-conn server-db port process-conn agent-fn step-size run-for)))
 
 (defn msg->code [message _]
   (let [{:keys [cljsc code]} (:content message)
@@ -175,25 +271,11 @@
                                              run-for 200}} cljsc]
     (if cljsc
       (str
+       `(println "do-sc2" ~cljsc)
        `(load-file "src/cljsc2/clj/notebook/kernel.clj")
        `(in-ns 'cljsc2.clj.kernel)
        `(use 'cljsc2.clj.core)
-       `(let [~'process-conn (get-conn server-db ~port)
-              ~'ready? (ready-for-actions? ~'process-conn)]
-          (when-not ~'ready? (do (println "Loading map..")
-                                 (cljsc2.clj.core/load-map ~'process-conn (:path (:root/map-config @server-db)))
-                                 (Thread/sleep 10000)))
-          (let [~'run (add-run server-db ~port)]
-            (cljsc2.clj.core/do-sc2
-             ~'process-conn
-             (eval (read-string ~code))
-             {:stepsize ~step-size
-              :run-until-fn (cljsc2.clj.core/run-for ~run-for)
-              :additional-listening-fns [(fn [~'observation ~'connection]
-                                           (add-observation server-db ~port (:db/id ~'run) ~'observation))]
-              :run-ended-cb (run-ended server-db (:db/id ~'run) ~port)
-              :game-ended-cb (fn [~'game-loop])}))
-          (when-not ~'ready? (add-game-info server-db ~port))))
+       `(do-run-code server-db ~code ~port ~run-for ~step-size))
       code)))
 
 #_(doseq [[k v] @kernels]
@@ -202,20 +284,22 @@
 (def kernels (atom {}))
 
 (def dir-watcher
-  (hawk/watch! [{:paths ["/Users/baruchberger/Library/Jupyter/runtime/"]
-                 :handler (fn [_ {:keys [file kind]}]
-                            (let [path (.getPath file)
-                                  name (.getName file)]
-                              (timbre/debug name kind "observed in directory")
-                              (when (and (clojure.string/starts-with? name "kernel")
-                                         (clojure.string/ends-with? name ".json")
-                                         (identical? kind :create))
-                                (swap! kernels assoc path (with-bindings
-                                                            {#'clojupyter.misc.messages/message->code (var msg->code)}
-                                                            (cljp/start-latest-kernel! path)))
-                                (Thread/sleep 5000)
-                                (clojure.java.io/delete-file path)))
-                            )}]))
+  (do
+    (Thread/sleep 10000)
+    (hawk/watch! [{:paths [(str (System/getenv "XDG_RUNTIME_DIR") "/jupyter")]
+                   :handler (fn [_ {:keys [file kind]}]
+                              (let [path (.getPath file)
+                                    name (.getName file)]
+                                (timbre/debug name kind "observed in directory")
+                                (when (and (clojure.string/starts-with? name "kernel")
+                                           (clojure.string/ends-with? name ".json")
+                                           (or (identical? kind :create)
+                                               (identical? kind :modify)))
+                                  (swap! kernels assoc path (with-bindings
+                                                              {#'clojupyter.misc.messages/message->code (var msg->code)}
+                                                              (cljp/start-latest-kernel! path)))
+                                  #_(Thread/sleep 5000)
+                                  #_(clojure.java.io/delete-file path))))}])))
 
 (reset! sente/debug-mode?_ true)
 
@@ -226,6 +310,7 @@
      :body    "NOPE"}))
 
 (defonce web-server_ (atom nil))
+
 (defn stop-web-server! [] (when-let [stop-fn @web-server_] (stop-fn)))
 
 (defn start-web-server! [& [port]]
@@ -235,15 +320,17 @@
                     (server/fulcro-parser)
                     {:http-server-adapter (get-sch-adapter)
                      :transit-handlers {:write
-                                        {com.google.protobuf.ByteString$LiteralByteString
-                                         (transit/write-handler
-                                          "literal-byte-string"
-                                          (fn [bs] (let [buff (ByteArrayOutputStream. 4096)
-                                                         _ (.writeTo bs buff)]
-                                                     (.toByteArray buff))))}}}))
+                                        (merge {com.google.protobuf.ByteString$LiteralByteString
+                                               (transit/write-handler
+                                                "literal-byte-string"
+                                                (fn [bs] (let [buff (ByteArrayOutputStream. 4096)
+                                                               _ (.writeTo bs buff)]
+                                                           (.toByteArray buff))))}
+                                               dst/write-handlers)}}))
         wrap-root (fn [handler] (fn [req] (handler (update req :uri #(if (= "/" %) "/index.html" %)))))
         ring-handler (-> (not-found-handler)
                          (ws/wrap-api ws)
+
                          (wrap-root)
                          (keyword-params/wrap-keyword-params)
                          (params/wrap-params)
@@ -251,7 +338,8 @@
                          (server/wrap-transit-response)
                          (wrap-resource "public")
                          #_(wrap-not-modified)
-                         #_(wrap-gzip))
+                         #_(wrap-gzip)
+                         (ring.middleware.defaults/wrap-defaults ring.middleware.defaults/site-defaults))
         [port stop-fn]
         (let [server (aleph/start-server ring-handler {:port port})
               p (promise)]
@@ -269,18 +357,23 @@
 (start-web-server! 3446)
 
 (def server-db
-  (atom {:root/processes []
-         :process/by-id {}
-         :connection/by-id {}
-         :run/by-id {}
-         :root/process-starter {:available-maps
-                                (spec/conform
-                                 ::model/available-maps
-                                 (->> (file-seq (clojure.java.io/file "/Applications/StarCraft II/Maps"))
-                                      (filter (fn [f] (clojure.string/ends-with? (.getName f) ".SC2Map")))
-                                      (map (fn [f] [(.getAbsolutePath f) (.getName f)]))
-                                      vec))}
-         :root/map-config {:path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}}))
+  (let [map-config {:map-config/path (str (cljsc2.clj.core/default-maps-path) "/DefeatBanelings.SC2Map")
+                    :db/id (uuid)}]
+    (atom {:root/processes []
+           :process/by-id {}
+           :connection/by-id {}
+           :run/by-id {}
+           :run-config/by-id {}
+           :map-config/by-id {(:db/id map-config) map-config}
+           :root/process-starter {:process-starter/available-maps
+                                  (spec/conform
+                                   ::model/available-maps
+                                   (->> (file-seq (clojure.java.io/file (str (cljsc2.clj.core/default-maps-path))))
+                                        (filter (fn [f] (clojure.string/ends-with? (.getName f) ".SC2Map")))
+                                        (filter (fn [f] (not (clojure.string/starts-with? (.getName f) "."))))
+                                        (map (fn [f] [(.getAbsolutePath f) (.getName f)]))
+                                        vec))
+                                  :process-starter/map-config [:map-config/by-id (:db/id map-config)]}})))
 
 #_(add-process server-db
                [:process/by-id 5000]
@@ -292,9 +385,9 @@
 (defquery-root ::model/processes
   (value [env params]
          (:root/processes
-          (prim/db->tree [{:root/processes (:query env)}]
-                         @server-db
-                         @server-db))))
+                 (prim/db->tree [{:root/processes (:query env)}]
+                                @server-db
+                                @server-db))))
 
 (defquery-root ::model/process-starter
   (value [env params]
@@ -303,13 +396,17 @@
                          @server-db
                          @server-db))))
 
-(defmutation cljsc2.cljs.content-script.core/change-default-map
-  [{:keys [map]}]
-  (action [what]
-          (swap! server-db assoc-in [:root/map-config :path] map)
-          {}))
+(defquery-root :root/starcraft-static-data
+  (value [env params]
+         cljsc2.clj.game-parsing/knowledge-base))
 
-(defmutation cljsc2.cljs.content-script.core/send-request-to-process
+(defquery-entity :run-config/by-id
+  (value [env id params]
+         (prim/db->tree (:query env)
+                        (get-in @server-db [:run-config/by-id id])
+                        (get-in @server-db [:run-config/by-id id]))))
+
+(defmutation cljsc2.cljs.content-script.core/send-request
   [{:keys [port request]}]
   (action [env]
           (let [conn (get-conn server-db port)
@@ -320,15 +417,37 @@
             (swap! server-db assoc-in
                    [:process/by-id port :latest-sc2-response] sc2-response)
             (add-latest-response server-db port sc2-response)
-           (cljsc2.clj.core/request-step conn 1)
+            (cljsc2.clj.core/request-step conn 1)
             (add-observation server-db port run-id
                              (:observation (:observation (cljsc2.clj.core/request-observation conn))))
             {})))
 
+(defmutation cljsc2.cljs.content-script.core/make-savepoint
+  [{:keys [game-loop port]}]
+  (action [env]
+          (let [_ (timbre/debug port game-loop)
+                conn (get-conn server-db port)]
+            (cljsc2.clj.core/quick-save conn)
+            (swap! server-db
+                   (fn [s]
+                     (-> s
+                         (assoc-in [:process/by-id port :process/savepoint-at]
+                                   game-loop)))))))
+
+(defmutation cljsc2.cljs.content-script.core/load-savepoint
+  [{:keys [port]}]
+  (action [env]
+          (let [conn (get-conn server-db port)
+                run-id (last (last (get-in @server-db [:process/by-id port :process/runs])))]
+            (cljsc2.clj.core/quick-load conn)
+            (cljsc2.clj.core/request-step conn 1)
+            (add-observation server-db port run-id
+                             (:observation (:observation (cljsc2.clj.core/request-observation conn)))))))
+
 (defmutation cljsc2.cljs.content-script.core/send-action
   [{:keys [action port]}]
   (action [env]
-          (let [_ (println port action)
+          (let [_ (timbre/debug port action)
                 conn (get-conn server-db port)
                 run-id (last (last (get-in @server-db [:process/by-id port :process/runs])))]
             (when (not (empty? action))
@@ -338,3 +457,22 @@
                   (cljsc2.clj.core/request-step conn 2)
                   (add-observation server-db port run-id
                                    (:observation (:observation (cljsc2.clj.core/request-observation conn)))))))))
+
+(defmutation cljsc2.cljs.content-script.core/update-map [{:keys [id path]}]
+  (action [env]
+          (swap! server-db assoc-in [:map-config/by-id id :map-config/path] path)))
+
+(defmutation cljsc2.cljs.content-script.core/submit-run-config [params]
+  (action [env]
+          (do
+            (swap! server-db
+                   (fn [s]
+                     (reduce (fn [acc [ident-path diff]]
+                               (timbre/debug ident-path diff)
+                               (reduce (fn [acc [key {:keys [after] :as it}]]
+                                         (assoc-in acc (conj ident-path key) after))
+                                       acc
+                                       diff))
+                             s
+                             (:diff params))))
+            {})))

@@ -21,21 +21,3 @@
    [datascript.core :as ds]
    )
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
-
-(comment
-  (ugly-make-protobuf #:SC2APIProtocol.sc2api$Action
-                      {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-                       {:action #:SC2APIProtocol.spatial$ActionSpatial
-                        {:unit-selection-rect #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionRect
-                         {:selection-screen-coord
-                          [#:SC2APIProtocol.common$RectangleI
-                           {:p0 #:SC2APIProtocol.common$PointI{:x 20 :y 66}
-                            :p1 #:SC2APIProtocol.common$PointI{:x 29 :y 60}}]
-                          :selection-add true}
-                         }}})
-  (ugly-make-protobuf #:SC2APIProtocol.sc2api$Action
-                      {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-                       {:action #:SC2APIProtocol.spatial$ActionSpatial
-                        {:unit-selection-point #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionPoint
-                         {:selection-screen-coord #:SC2APIProtocol.common$PointI{:x 26 :y 60}}
-                         }}}))

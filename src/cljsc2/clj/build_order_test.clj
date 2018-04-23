@@ -27,14 +27,6 @@
    ;; make sure build x command does not stack
    ))
 
-(defn quick-save [conn]
-  (send-request-and-get-response-message
-   conn #:SC2APIProtocol.sc2api$RequestQuickSave{:quick-save {}}))
-
-(defn quick-load [conn]
-  (send-request-and-get-response-message
-   conn #:SC2APIProtocol.sc2api$RequestQuickLoad{:quick-load {}}))
-
 (cljsc2.clj.core/send-action-and-get-response
  conn
  #:SC2APIProtocol.sc2api$Action
@@ -61,8 +53,11 @@
 (send-action-and-get-response
  conn
  #:SC2APIProtocol.sc2api$Action{:action-render #:SC2APIProtocol.spatial$ActionSpatial{:action #:SC2APIProtocol.spatial$ActionSpatial{:unit-selection-rect #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionRect{:selection-screen-coord [#:SC2APIProtocol.common$RectangleI{:p0 #:SC2APIProtocol.common$PointI{:x 28.666666666666668, :y 64.37946428571429}, :p1 #:SC2APIProtocol.common$PointI{:x 0, :y 0}}], :selection-add true}}}})
+
 (request-step conn 1)
+
 (quit conn)
+
 (comment
   :scv build one scv
   (build :scvs)

@@ -410,7 +410,8 @@
      ([spec-key spec-obj is-one-of]
       (let [b (if (and is-one-of
                        (not (or (identical? spec-key :SC2APIProtocol.spatial$ActionSpatialUnitSelectionPoint/selection-screen-coord)
-                               (identical? spec-key :SC2APIProtocol.raw$ActionRawCameraMove/center-world-space)))) ;;:(
+                                (identical? spec-key :SC2APIProtocol.raw$ActionRawCameraMove/center-world-space)
+                                (identical? spec-key :SC2APIProtocol.spatial$ActionSpatialCameraMove/center-minimap)))) ;;:(
                 (try (builder-for-spec-key-with-attribute spec-key)
                      (catch Exception e (create-builder spec-key)))
                 (create-builder spec-key))]
@@ -464,7 +465,7 @@
           :else (str-invoke-method "set" b spec-key spec-obj))
         (.build b))))
 
-(ugly-memo-make-protobuf #:SC2APIProtocol.sc2api$Request
+#_(ugly-memo-make-protobuf #:SC2APIProtocol.sc2api$Request
                          {:request #:SC2APIProtocol.sc2api$RequestAction
                           {:action #:SC2APIProtocol.sc2api$RequestAction
                            {:actions

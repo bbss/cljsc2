@@ -151,7 +151,8 @@
                    :dependencies [[binaryage/devtools "0.9.4"]
                                   [figwheel-sidecar "0.5.14"]
                                   [com.cemerick/piggieback "0.2.2"]
-                                  [org.clojure/tools.nrepl "0.2.10"]]
+                                  [org.clojure/tools.nrepl "0.2.12"]]
+                   :plugins [[cider/cider-nrepl "0.16.0"]]
                    ;; need to add dev source path here to get user.clj loaded
                    :source-paths ["src/cljsc2/cljs"
                                   "dev"]
@@ -161,4 +162,5 @@
                    ;; need to add the compliled assets to the :clean-targets
                    :clean-targets ^{:protect false} ["resources/public/js/compiled"
                                                      "resources/unpacked/compiled/"
-                                                     :target-path]}})
+                                                     :target-path]}
+})
