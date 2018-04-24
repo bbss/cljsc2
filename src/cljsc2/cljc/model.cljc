@@ -32,3 +32,19 @@
 (spec/def ::available-maps (spec/coll-of (spec/cat :absolute-path string? :file-name string?)))
 
 (spec/def ::process-starter (spec/keys :req [::available-maps]))
+
+(spec/def ::step-size (spec/and int?
+                                pos?
+                                #(<= % 1000)))
+
+(spec/def ::run-size (spec/and int?
+                               pos?
+                               #(<= % 100000)))
+
+(spec/def ::savepoint-at (spec/and int?
+                                   pos?))
+
+(spec/def ::run-config (spec/keys :req [::id
+                                        ::step-size
+                                        ::run-size]
+                                  :opt [::savepoint-at]))

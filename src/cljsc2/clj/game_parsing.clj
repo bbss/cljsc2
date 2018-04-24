@@ -470,7 +470,6 @@
           :minimap/y y-index
           :minimap/available pixel}))))
 
-
 (comment defn print-minimap-to-string [observation]
   (->>
    (ds/q '[:find ?y ?x ?av

@@ -465,17 +465,8 @@
           :else (str-invoke-method "set" b spec-key spec-obj))
         (.build b))))
 
-#_(ugly-memo-make-protobuf #:SC2APIProtocol.sc2api$Request
-                         {:request #:SC2APIProtocol.sc2api$RequestAction
-                          {:action #:SC2APIProtocol.sc2api$RequestAction
-                           {:actions
-                            [#:SC2APIProtocol.sc2api$Action
-                             {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-                              {:action #:SC2APIProtocol.spatial$ActionSpatial
-                               {:unit-selection-point #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionPoint
-                                {:selection-screen-coord #:SC2APIProtocol.common$PointI{:x 27 :y 62}
-                                 :type "Select"}
-                                }}}]}}})
+#_(ugly-memo-make-protobuf #:SC2APIProtocol.sc2api$Action{:action-render #:SC2APIProtocol.spatial$ActionSpatial{:action #:SC2APIProtocol.spatial$ActionSpatial{:camera-move #:SC2APIProtocol.spatial$ActionSpatialCameraMove{:center-minimap #:SC2APIProtocol.common$PointI{:x 20, :y 20}}}}})
+
 
 (def ugly-memo-make-protobuf (memoize ugly-make-protobuf))
 

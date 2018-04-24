@@ -2,8 +2,7 @@
   (:require [cognitect.transit :as transit]
             [cljsc2.cljs.colors :refer [discrete-color-palette
                                         hot-palette
-                                        player-absolute-colors]]
-            cljsjs.d3))
+                                        player-absolute-colors]]))
 
 (enable-console-print!)
 
@@ -78,12 +77,10 @@
             (.domain #js [0 1])
             (.range #js ["rgba(0,0,0,0)" "purple"]))})
 
-(defonce app-state (atom {}))
 
 (declare msg)
 
 (defn to-colored-clamped-arr [from-arr to-arr-size scale]
-  #_(println (.-length from-arr) to-arr-size)
   (let [to-arr (js/Uint8ClampedArray. to-arr-size)]
     (loop [i 0
            d 0]
@@ -98,6 +95,19 @@
           (recur (inc i) (+ d 4))
           to-arr)))))
 
+(defn to-rgb-clamped-arr [from-arr to-arr-size]
+  (let [to-arr (js/Uint8ClampedArray. to-arr-size)]
+    (loop [i 0
+           d 0]
+      (let []
+        (aset to-arr d (aget from-arr i))
+        (aset to-arr (+ d 1) (aget from-arr (inc i)))
+        (aset to-arr (+ d 2) (aget from-arr (inc (inc i))))
+        (aset to-arr (+ d 3) 255)
+        (if (< i (inc (.-length from-arr)))
+          (recur (+ i 3) (+ d 4))
+          to-arr)))))
+
 (def uint8->binary js/uint8toBinaryString)
 
 (def binary->ab32 js/str2ab32)
@@ -108,36 +118,19 @@
         image-width (:x size)
         image-height (:y size)
         ctx (.getContext canvas "2d")
+        data (if is-rgb
+               (to-rgb-clamped-arr data arr-size)
+               (to-colored-clamped-arr
+                data
+                arr-size
+                scale))
         image-p (js/createImageBitmap
                  (js/ImageData.
-                  (if is-rgb
-                    data
-                    (to-colored-clamped-arr
-                             data
-                             arr-size
-                             scale))
+                  data
                   image-width image-height))
         render-cb (fn [img-data]
                     (.drawImage ctx
-                                img-data 0 0 (first to-resolution) (second to-resolution)))]
+                                img-data 0 0 (:x to-resolution) (:y to-resolution)))]
     (set! (.-fillStyle ctx) "white")
-    (.fillRect ctx 0 0 (first to-resolution) (second to-resolution))
+    (.fillRect ctx 0 0 (:x to-resolution) (:y to-resolution))
     [image-p render-cb]))
-
-(defn handle-incoming-message [e]
-  (let [message (.-data e)]
-    (def msg (transit/read reader message))
-    (print "e" "Message")
-    (doall
-     (map
-      (fn [feature-layer-name]
-        (when (get (:renders msg) feature-layer-name)
-          (let [{:keys [data bits-per-pixel size]} (get (:renders msg) feature-layer-name)]
-            (comment to-canvas
-             app-state
-             feature-layer-name
-             (get (:renders msg) feature-layer-name)
-             (get feature-layer-draw-descriptions feature-layer-name)
-             [336 336])
-            )))
-      feature-layer-types))))
