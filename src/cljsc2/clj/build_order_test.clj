@@ -1,62 +1,13 @@
 (ns cljsc2.clj.build-order-test
   (:require
-   [datascript.core :as ds])
+   [datascript.core :as ds]
+   [taoensso.timbre :as timbre])
   (:use
    cljsc2.clj.core
    cljsc2.clj.rules
-   cljsc2.clj.notebook.core))
-
-(def planning (atom {}))
-
-(def conn (get-conn server-db 5000))
-
-(load-simple-map conn)
-
-(defn build
-  ([unit] (build unit {}))
-  ([unit config]
-   ;;do -s from string
-   ;;classcase, name on keyword
-   ;;building scvs until a certain limit
-   ;;not filling queue over 1
-   ;; not too many at same time
-   ;; one in the start
-   ;; not when there is a big difference between food and cap
-   ;; selecting builders from pool to avoid conflicting commands
-   ;; decide between build new and wait for queue to finish
-   ;; make sure build x command does not stack
-   ))
-
-(cljsc2.clj.core/send-action-and-get-response
- conn
- #:SC2APIProtocol.sc2api$Action
- {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-  {:action #:SC2APIProtocol.spatial$ActionSpatial
-   {:unit-selection-rect #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionRect
-    {:selection-screen-coord
-     [#:SC2APIProtocol.common$RectangleI
-      {:p0 #:SC2APIProtocol.common$PointI{:x 0 :y 0}
-       :p1 #:SC2APIProtocol.common$PointI{:x 100 :y 100}}
-      ]
-     }
-    }}})
-
-(send-action-and-get-response
- conn
- #:SC2APIProtocol.sc2api$Action
- {:action-render #:SC2APIProtocol.spatial$ActionSpatial
-  {:action #:SC2APIProtocol.spatial$ActionSpatial
-   {:unit-selection-point #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionPoint
-    {:selection-screen-coord #:SC2APIProtocol.common$PointI{:x 27 :y 62}
-     :type "Select"}}}})
-
-(send-action-and-get-response
- conn
- #:SC2APIProtocol.sc2api$Action{:action-render #:SC2APIProtocol.spatial$ActionSpatial{:action #:SC2APIProtocol.spatial$ActionSpatial{:unit-selection-rect #:SC2APIProtocol.spatial$ActionSpatialUnitSelectionRect{:selection-screen-coord [#:SC2APIProtocol.common$RectangleI{:p0 #:SC2APIProtocol.common$PointI{:x 28.666666666666668, :y 64.37946428571429}, :p1 #:SC2APIProtocol.common$PointI{:x 0, :y 0}}], :selection-add true}}}})
-
-(request-step conn 1)
-
-(quit conn)
+   cljsc2.clj.notebook.core
+   cljsc2.clj.game-parsing
+   cljsc2.clj.build-order))
 
 (comment
   :scv build one scv
@@ -70,3 +21,69 @@
   (rally barracks)
 
   (attack-at 50 supp))
+
+(defn unit-type-for-name [name]
+  (first (ds/q `[:find [?id ...]
+                :where
+                [?e :unit-type/name ~name]
+                [?e :unit-type/unit-id ?id]]
+              knowledge-base)))
+
+(defn test-action-planner [planner-fn goal-reached]
+  (let [conn (get-conn server-db 5000)]
+    (run-on-conn server-db 5000
+                 conn
+                 planner-fn
+                 200 5000
+                 {:run-until-fn (fn [starting-obs]
+                                  (let [goal-reached-pred (goal-reached starting-obs)
+                                        run-for-pred ((run-for 5000) starting-obs)]
+                                    (fn [next-obs _]
+                                      (or (goal-reached-pred next-obs _)
+                                          (run-for-pred next-obs _)))))
+                  :run-ended-cb (juxt (fn [_ _]
+                                        (quick-load conn))
+                                      (run-ended server-db (->> @server-db
+                                                                :run/by-id
+                                                                keys
+                                                                (reduce max)) 5000))})))
+
+(defn more-unit-type-goal-reached [unit-type]
+  (fn [starting-obs]
+   (let [starting-count (->> starting-obs
+                                 :raw-data
+                                 :units
+                                 (filter (comp #{1} :owner))
+                                 (filter (comp #{unit-type} :unit-type))
+                                 count)]
+     (fn [next-obs _]
+       (> (->> next-obs
+               :raw-data
+               :units
+               (filter (comp #{1} :owner))
+               (filter (comp #{unit-type} :unit-type))
+               count)
+          starting-count)))))
+
+(test-action-planner
+ (fn [observation connection]
+   (create-actions knowledge-base [build-scvs] observation connection))
+ (more-unit-type-goal-reached (unit-type-for-name "SCV")))
+
+(test-action-planner
+ (fn [observation connection]
+   (create-actions knowledge-base [build-supply-depots] observation connection))
+ (more-unit-type-goal-reached (unit-type-for-name "SupplyDepot")))
+
+(test-action-planner
+ (fn [observation connection]
+   (create-actions knowledge-base [build-supply-depots
+                                   build-barracks] observation connection))
+ (more-unit-type-goal-reached (unit-type-for-name "Barracks")))
+
+(test-action-planner
+ (fn [observation connection]
+   (create-actions knowledge-base [build-supply-depots
+                                   build-barracks
+                                   build-marines] observation connection))
+ (more-unit-type-goal-reached (unit-type-for-name "Marine")))

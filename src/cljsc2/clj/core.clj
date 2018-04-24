@@ -304,7 +304,6 @@
   (fn [starting-obs]
     (let [starting-game-loop (get-in starting-obs [:game-loop])]
       (fn [obs _]
-        (timbre/debug "runfor" (if starting-game-loop starting-game-loop starting-obs) (get-in obs [:game-loop]))
         (let [current-game-loop (get-in obs [:game-loop])
               current-run-steps (- current-game-loop starting-game-loop)]
           (>= current-run-steps

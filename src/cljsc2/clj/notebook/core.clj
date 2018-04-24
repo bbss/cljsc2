@@ -226,40 +226,58 @@
              :process-id port}))
     new-run))
 
-(defn load-new-game [process-conn run-map-config]
+(defn status [conn]
+  (:status (cljsc2.clj.core/request-observation conn)))
+
+(defn load-new-game [conn run-map-config]
   (do (println "Loading map..")
-      (cljsc2.clj.core/load-map process-conn run-map-config)
-      (Thread/sleep 10000)
-      (cljsc2.clj.core/flush-incoming-responses process-conn)))
+      (case (status conn)
+        :ended (cljsc2.clj.core/restart-game conn)
+        (do (cljsc2.clj.core/load-map conn run-map-config)
+            (Thread/sleep 10000)
+            (cljsc2.clj.core/flush-incoming-responses conn)))))
 
-(defn run-on-conn [server-db port process-conn agent-fn step-size run-for-steps]
-  (let [run (add-run server-db port)
-        ready? (ready-for-actions? process-conn)
-        restart-on-episode-end (get-in @server-db (conj (:run/run-config run) :run-config/restart-on-episode-end))]
-    (when-not ready? (do (load-new-game process-conn (val (first (:map-config/by-id @server-db))))
-                         (add-game-info server-db port)))
-    (let [run-result
-          (cljsc2.clj.core/do-sc2
-           process-conn
-           agent-fn
-           {:stepsize step-size
-            :run-until-fn (cljsc2.clj.core/run-for run-for-steps)
-            :run-for-steps run-for-steps
-            :additional-listening-fns [(fn [observation connection]
-                                         (add-observation server-db port (:db/id run) observation))]
-            :run-started-cb (run-started server-db (:db/id run) port)
-            :run-ended-cb (run-ended server-db (:db/id run) port)})
-          {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?]} (nth run-result 2)]
-      (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
-      (if restart-on-episode-end
-        (if (and game-ended? (not run-ended?))
-          (concat [run-result] (run-on-conn server-db port process-conn agent-fn step-size
-                                            (- run-for-steps ran-for-steps)))
-          [run-result])
-        [run-result]))))
+#_(cljsc2.clj.core/send-action-and-get-response
+ (get-conn server-db 5000)
+ #:SC2APIProtocol.sc2api$Action
+ {:action-chat #:SC2APIProtocol.sc2api$ActionChat
+  {:channel "Broadcast"
+   :message "restart"}})
 
+(defn run-on-conn
+  ([server-db port process-conn agent-fn step-size run-for-steps]
+   (run-on-conn server-db port process-conn agent-fn step-size run-for-steps {}))
+  ([server-db port process-conn agent-fn step-size run-for-steps options]
+   (let [run (add-run server-db port)
+         ready? (ready-for-actions? process-conn)
+         restart-on-episode-end (get-in @server-db
+                                        (conj (:run/run-config run)
+                                              :run-config/restart-on-episode-end))]
+     (when-not ready? (do (load-new-game process-conn (val (first (:map-config/by-id @server-db))))
+                          (add-game-info server-db port)))
+     (let [run-result
+           (cljsc2.clj.core/do-sc2
+            process-conn
+            agent-fn
+            (merge
+             {:stepsize step-size
+              :run-until-fn (cljsc2.clj.core/run-for run-for-steps)
+              :run-for-steps run-for-steps
+              :additional-listening-fns [(fn [observation connection]
+                                           (add-observation server-db port (:db/id run) observation))]
+              :run-started-cb (run-started server-db (:db/id run) port)
+              :run-ended-cb (run-ended server-db (:db/id run) port)}
+             options))
+           {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?]} (nth run-result 2)]
+       (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
+       (if restart-on-episode-end
+         (if (and game-ended? (not run-ended?))
+           (concat [run-result] (run-on-conn server-db port process-conn agent-fn step-size
+                                             (- run-for-steps ran-for-steps)))
+           [run-result])
+         [run-result])))))
 
-(defn do-run-code [server-db code port run-for step-size restart-on-episode]
+(defn do-run-code [server-db code port run-for step-size]
   (let [process-conn (get-conn server-db port)
         agent-fn (eval (read-string code))]
     (run-on-conn server-db port process-conn agent-fn step-size run-for)))
