@@ -25,7 +25,7 @@
    [clojupyter.core :as cljp]
    [ring.middleware.defaults]
    [ring.middleware.content-type :refer [wrap-content-type]]
-   [ring.middleware.gzip :refer [wrap-gzip]]
+   #_[ring.middleware.gzip :refer [wrap-gzip]]
    [ring.middleware.not-modified :refer [wrap-not-modified]]
    [ring.middleware.resource :refer [wrap-resource]]
    [ring.util.response :as rsp :refer [file-response resource-response]]
@@ -237,13 +237,6 @@
             (Thread/sleep 10000)
             (cljsc2.clj.core/flush-incoming-responses conn)))))
 
-#_(cljsc2.clj.core/send-action-and-get-response
- (get-conn server-db 5000)
- #:SC2APIProtocol.sc2api$Action
- {:action-chat #:SC2APIProtocol.sc2api$ActionChat
-  {:channel "Broadcast"
-   :message "restart"}})
-
 (defn run-on-conn
   ([server-db port process-conn agent-fn step-size run-for-steps]
    (run-on-conn server-db port process-conn agent-fn step-size run-for-steps {}))
@@ -450,7 +443,8 @@
                    (fn [s]
                      (-> s
                          (assoc-in [:process/by-id port :process/savepoint-at]
-                                   game-loop)))))))
+                                   game-loop))))
+            {})))
 
 (defmutation cljsc2.cljs.content-script.core/load-savepoint
   [{:keys [port]}]

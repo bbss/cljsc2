@@ -1,6 +1,6 @@
 (ns cljsc2.clj.core
   (:require
-   [manifold.stream :as s :refer [stream]]
+   [manifold.stream :as strm :refer [stream]]
    [manifold.deferred :as d]
    [aleph.http :as http]
    [perseverance.core :as p]
@@ -15,7 +15,7 @@
   (.toByteArray it))
 
 (defn send-request [connection request]
-  (s/put! connection
+  (strm/put! connection
           (to-byte
            (ugly-memo-make-protobuf
             #:SC2APIProtocol.sc2api$Request
@@ -43,7 +43,7 @@
            {}
          (let [connection @(http/websocket-client address
                                                   {:max-frame-payload 998524288})]
-           (s/on-closed connection (fn [] (timbre/debug address "connection closed")))
+           (strm/on-closed connection (fn [] (timbre/debug address "connection closed")))
            connection))))))
 
 (defn max-version [path]
@@ -91,31 +91,31 @@
 
 (defn latest-response [connection]
   (loop [buffer-size (-> connection
-                         s/description
+                         strm/description
                          :source
                          :buffer-size)]
     (if (= buffer-size 0)
       nil
       (if (= buffer-size 1)
-        (s/take! connection)
-        (do (s/take! connection)
+        (strm/take! connection)
+        (do (strm/take! connection)
             (recur (-> connection
-                       s/description
+                       strm/description
                        :source
                        :buffer-size)))))))
 
 (defn response [connection]
   (if (>
        (-> connection
-           s/description
+           strm/description
            :source
            :buffer-size)
        0)
-    (s/take! connection)))
+    (strm/take! connection)))
 
 (defn conn-closed? [connection]
   (-> connection
-      s/description
+      strm/description
       :sink
       :closed?))
 
@@ -149,9 +149,9 @@
                  (catch Exception e (timbre/debug "exception sending request" request " with error: " e)))]
     (loop [res (latest-response-message connection)
            depth 0]
-      (when (> depth 1000000) (println "depth > 1000000"))
-      (if (> depth 1000000)
-        (throw (Exception. (str req "tried request > 1000000 times"))))
+      (when (> depth 10000000) (println "depth > 10000000"))
+      (if (> depth 10000000)
+        (throw (Exception. (str req "tried request > 10000000 times"))))
       (if (identical? res nil)
         (recur (latest-response-message connection) (inc depth))
         res))))
@@ -290,12 +290,12 @@
         :score true
         :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
         {:width 24
-         :resolution #:SC2APIProtocol.common$Size2DI{:x 180 :y 90}
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
          }
         :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
         {:width 24
-         :resolution #:SC2APIProtocol.common$Size2DI{:x 180 :y 90}
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
          }
         }}}))))
