@@ -1,450 +1,461 @@
 (ns cljsc2.clj.build-order
   (:require
-   [cljsc2.clj.core :refer [req]]
    [datascript.core :as ds]
-   [taoensso.nippy :as nippy]
-   [clojure.spec.alpha :as spec]))
+   [taoensso.timbre :as timbre]
+   [clojure.spec.alpha :as s]
+   [clojure.spec.test.alpha :as st]
+   [clojure.spec.gen.alpha :as gen]
+   [lambda-ml.clustering.dbscan :as dbscan]
+   [lambda-ml.distance :as dist :refer [euclidean]])
+  (:use
+   cljsc2.clj.core
+   cljsc2.clj.rules
+   cljsc2.clj.notebook.core
+   cljsc2.clj.game-parsing
+   cljsc2.clj.build-order))
 
-(defn abilities [connection]
-  (->
-   (req connection
-        #:SC2APIProtocol.sc2api$RequestData
-        {:data #:SC2APIProtocol.sc2api$RequestData
-         {:ability-id true}})
-   :data
-   :abilities))
+(defn run-query [env assoc-key {:keys [in query find transform-result]
+                                :or {transform-result ffirst}}]
+  (transform-result (apply (partial ds/q (concat
+                                          (concat [:find] (or find [(symbol (str "?" (name assoc-key)))]))
+                                          (concat '[:in $] (keys in))
+                                          (concat [:where] query))
+                                    (:knowledge env)
+                                    )
+                           (for [fun (vals in)]
+                             (fun env)))))
 
-(defn units [connection]
-  (->
-   (req connection
-        #:SC2APIProtocol.sc2api$RequestData
-        {:data #:SC2APIProtocol.sc2api$RequestData
-         {:unit-type-id true}})
-   :data
-   :units))
+(defn remove-occupied-casters [{:keys [actions ability-order-already-issued] :as env} _]
+  (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
+                                                       :SC2APIProtocol.raw$ActionRaw/action
+                                                       :SC2APIProtocol.raw$ActionRaw/unit-command
+                                                       :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
 
-(defn effects [connection]
-  (->
-   (req connection
-        #:SC2APIProtocol.sc2api$RequestData
-        {:data #:SC2APIProtocol.sc2api$RequestData
-         {:effect-id true}})
-   :data
-   :effects))
+                                           actions)))]
+    (update env :available-casters (fn [casters]
+                                     (clojure.set/difference casters
+                                                             occupied-casters
+                                                             ability-order-already-issued)))))
 
-(defn upgrades [connection]
-  (->
-   (req connection
-        #:SC2APIProtocol.sc2api$RequestData
-        {:data #:SC2APIProtocol.sc2api$RequestData
-         {:upgrade-id true}})
-   :data
-   :upgrades))
+(defn update-build-actions [{:keys [ability-id connection do-times available-casters
+                                    available-building-positions footprint-radius
+                                    is-building
+                                    is-refinery
+                                    knowledge
+                                    connection] :as env} _]
+  (let [{:keys [actions positions]}
+        (reduce (fn [{:keys [positions actions] :as acc} caster-tag]
+                  (if is-building
+                    (if is-refinery
+                      (let [free-vespenes (clojure.set/difference
+                                           (set (ds/q '[:find [?target ...]
+                                                        :where
+                                                        [?target :unit/vespene-contents]
+                                                        [?target :unit/unit-type 342]]
+                                                      knowledge))
+                                           (set (ds/q '[:find [?target ...]
+                                                        :where
+                                                        [?target :unit/vespene-contents]
+                                                        [?target :unit/unit-type 342]
+                                                        [?target :unit/x ?at-x]
+                                                        [?other :unit/x ?at-x]
+                                                        [(not= ?target ?other)]]
+                                                      knowledge))
+                                           )]
+                        (when (not (empty? free-vespenes))
+                          (assoc acc
+                                 :actions
+                                 (conj actions (ability-to-action [caster-tag] ability-id
+                                                                  (first free-vespenes)
+                                                                  {})))))
+                      (let [[[found-x found-y :as found-position] remaining-positions]
+                            (find-location connection caster-tag ability-id positions)]
+                        (if (and found-position found-x found-y)
+                          (-> acc
+                              (assoc :actions (conj actions (ability-to-action [caster-tag] ability-id found-x found-y {})))
+                              (assoc :positions (clojure.set/difference
+                                                 (set remaining-positions)
+                                                 (set (positions-around
+                                                       found-x
+                                                       found-y
+                                                       (Math/round footprint-radius))))))
+                          (reduced acc))))
+                    (assoc acc :actions (conj actions (ability-to-action [caster-tag] ability-id {})))))
+                {:positions available-building-positions
+                 :actions []}
+                (take do-times available-casters))]
+    (-> env
+        (update :actions (fn [actions-so-far] (concat actions-so-far actions)))
+        (assoc :available-building-positions positions))))
 
-(defn buffs [connection]
-  (->
-   (req connection
-        #:SC2APIProtocol.sc2api$RequestData
-        {:data #:SC2APIProtocol.sc2api$RequestData
-         {:buff-id true}})
-   :data
-   :buffs))
+(defn get-unit-type-count [knowledge unit-type]
+  (ffirst (ds/q '[:find (count ?unit-tag)
+                  :in $ ?unit-type
+                  :where
+                  [?ut-e :unit-type/name ?unit-type]
+                  [?ut-e :unit-type/unit-id ?ut-id]
+                  [?unit-tag :unit/unit-type ?ut-id]]
+                knowledge
+                unit-type)))
 
-(defn str-len-distance
-  ;; normalized multiplier 0-1
-  ;; measures length distance between strings.
-  ;; 1 = same length
-  [s1 s2]
-  (let [c1 (count s1)
-        c2 (count s2)
-        maxed (max c1 c2)
-        mined (min c1 c2)]
-    (double (- 1
-               (/ (- maxed mined)
-                  maxed)))))
+(defmulti goal-evaluator :type)
 
-(def MAX-STRING-LENGTH 1000.0)
+(defmethod goal-evaluator :until-count
+  [{:keys [unit-type amount]}]
+  (fn [starting-knowledge]
+    (let [starting-count (get-unit-type-count starting-knowledge unit-type)]
+      (fn [{:keys [next-knowledge]}]
+        (>= (- (or (get-unit-type-count next-knowledge unit-type) 0)
+               (or starting-count 0))
+            amount)))))
 
-(defn clean-str
-  [s]
-  (.replaceAll (.toLowerCase s) "[ \\/_]" ""))
+(defmethod goal-evaluator :env
+  [{:keys [unit-type amount evaluator]}]
+  (fn [starting-knowledge]
+    (fn [env]
+      (apply evaluator [env]))))
 
-(defn score
-  [oquery ostr]
-  (let [query (clean-str oquery)
-        str (clean-str ostr)]
-    (loop [q (seq (char-array query))
-           s (seq (char-array str))
-           mult 1
-           idx MAX-STRING-LENGTH
-           score 0]
-      (cond
-       ;; add str-len-distance to score, so strings with matches in same position get sorted by length
-       ;; boost score if we have an exact match including punctuation
-       (empty? q) (+ score
-                     (str-len-distance query str)
-                     (if (<= 0 (.indexOf ostr oquery)) MAX-STRING-LENGTH 0))
-       (empty? s) 0
-       :default (if (= (first q) (first s))
-                  (recur (rest q)
-                         (rest s)
-                         (inc mult) ;; increase the multiplier as more query chars are matched
-                         (dec idx) ;; decrease idx so score gets lowered the further into the string we match
-                         (+ mult score)) ;; score for this match is current multiplier * idx
-                  (recur q
-                         (rest s)
-                         1 ;; when there is no match, reset multiplier to one
-                         (dec idx)
-                         score))))))
+(defn add-actions-for-plan-spec [[planner env] plan-spec]
+  [planner (reduce (fn [env [process-step-key value]]
+                     (let [assoc-key (keyword (clojure.string/replace (name process-step-key) "-query" ""))]
+                       (cond
+                         (map? value) (assoc-in env (or (:as value) [assoc-key]) (run-query env assoc-key value))
+                         (fn? value) (value env planner)
+                         (keyword? value) (assoc env assoc-key (get env value))
+                         :else (assoc env assoc-key value))))
+                   env
+                   (partition 2 plan-spec))])
 
+(def unit-has-order-rule
+  '[[(unit-has-order ?unit-tag ?ability-id)
+     [?unit-tag :unit/orders ?order]
+     [?order :order/ability-id ?ability-id]
+     ]])
 
-(defn fuzzy-search
-  ([query col get-against]
-   (fuzzy-search query col get-against 1))
-  ([query col get-against result-count]
-   (let [query (clojure.string/lower-case query)]
-     (take result-count
-           (sort-by :score
-                    (comp - compare)
-                    (filter #(< 0 (:score %))
-                            (for [doc col]
-                              {:data doc
-                               :score (score query (clojure.string/lower-case (or (get-against doc) "")))})))))))
+(defn initialize-active-plans [plans starting-knowledge]
+  (let [initialized-plans (->> plans
+                               (map (fn [plan]
+                                      {:initialized-goals (map (fn [goal]
+                                                                 ((goal-evaluator goal) starting-knowledge))
+                                                               (:action-goals plan))
+                                       :plan plan})))]
+    initialized-plans))
 
-(def memoized-search (memoize cljsc2.clj.build-order/fuzzy-search))
+(defn plans-executor [planner]
+  (fn [starting-observation connection]
+    (let [game-info (cljsc2.clj.core/send-request-and-get-response-message
+                     connection
+                     #:SC2APIProtocol.sc2api$RequestGameInfo{:game-info {}})
+          starting-knowledge (ds/db-with
+                              knowledge-base
+                              (obs->facts starting-observation game-info))]
+      (swap! planner assoc :active-plans (initialize-active-plans (:plans @planner) starting-knowledge))
+      (swap! planner assoc :plans [])
+      (fn [latest-observation connection]
+        (let [latest-knowledge (ds/db-with
+                                knowledge-base
+                                (obs->facts latest-observation game-info))
+              env (do (swap! planner update :env #(merge {:actions []
+                                                          :available-building-positions (cljsc2.clj.game-parsing/positions-near-unit-type "CommandCenter" latest-knowledge)
+                                                          :connection connection
+                                                          :knowledge latest-knowledge}
+                                                         %))
+                      (:env @planner))]
+          (let [active-plans (:active-plans @planner)
+                env (if (seq? active-plans)
+                      (second (->> active-plans
+                                   (map (comp :action-spec :plan))
+                                   (reduce add-actions-for-plan-spec
+                                           [planner env])))
+                      env)
+                env (reduce (fn [env {:keys [plan initialized-goals]}]
+                              (if (and (every? true? (map (fn [goal] (goal {:next-knowledge latest-knowledge
+                                                                            :env env}))
+                                                          initialized-goals))
+                                       (:goals-succeeded-action plan))
+                                (do (apply (:goals-succeeded-action plan) [env planner])
+                                    env)
+                                env))
+                            env
+                            active-plans)]
+            (swap!
+             planner
+             (fn [p]
+               {:active-plans (concat (->> active-plans
+                                    (filter
+                                     (fn [{:keys [plan initialized-goals]}]
+                                       (not (every? true?
+                                                    (map (fn [goal]
+                                                           (goal {:next-knowledge latest-knowledge
+                                                                  :env env}))
+                                                         initialized-goals)))))
+                                    (remove (fn [{:keys [plan initialized-goals]}]
+                                              (and (every? true? (map (fn [goal] (goal latest-knowledge))
+                                                                      initialized-goals))
+                                                   (:remove-after-goal-attained plan)))))
+                                      (or (initialize-active-plans (:new-plans @planner) latest-knowledge) []))
+                :env (-> env
+                         (dissoc :knowledge)
+                         (dissoc :actions))}))
+            (vec (set (:actions env)))))))))
 
-(defn get-unit-type-by-id [id]
-  (:data (first (memoized-search id
-                                 cljsc2.clj.build-order/units
-                                 :unit-id
-                                 1))))
+(defn finished? [planner]
+  (fn [_ _]
+    (not (> (count (remove (fn [p] (= :continuous (:remove-after-goal-attained p)))
+                           (:active-plans @planner))) 0))))
 
-(defn get-unit-type-by-name [id]
-  (:data (first (memoized-search id
-                                 cljsc2.clj.build-order/units
-                                 :name
-                                 1))))
+(defn inactive-scvs [knowledge]
+  (clojure.set/difference
+   (set (ds/q '[:find [?scv ...]
+                :where
+                [?scv :unit/unit-type 45]]
+              knowledge))
+   (set (ds/q '[:find [?scv ...]
+                :where
+                [?scv :unit/unit-type 45]
+                [?scv :unit/orders]]
+              knowledge))))
 
-(defn get-ability-type-by-id [id]
-  (:data (first (memoized-search
-                 id
-                 cljsc2.clj.build-order/abilities
-                 :ability-id
-                 1
-                 ))))
+(defn harvestable-units [knowledge]
+  (ds/q '[:find ?unit ?ideal ?harvesters
+          :where
+          [?unit :unit/ideal-harvesters ?ideal]
+          [?unit :unit/assigned-harvesters ?harvesters]
+          [(not= ?ideal 0)]]
+        knowledge))
 
-(defn get-ability-type-by-name [name]
-  (:data (first (memoized-search
-                 name
-                 cljsc2.clj.build-order/abilities
-                 :friendly-name
-                 1
-                 ))))
+(defn harvesting-units [knowledge]
+  (set (ds/q '[:find [?worker ...]
+               :in $ [?ability-id ...] %
+               :where
+               (unit-has-order ?worker ?ability-id)]
+             knowledge
+             [295 296]
+             unit-has-order-rule)))
 
-(defn get-ability-types-by-name [name]
-  (map :data (memoized-search
-                 name
-                 cljsc2.clj.build-order/abilities
-                 :friendly-name
-                 10
-                 )))
-
-(defn get-unit-types-by-name [name]
-  (map :data (memoized-search
-              name
-              cljsc2.clj.build-order/units
-              :name
-              10
-              )))
-(comment
-  (spec/def ::amount int?)
-  (spec/def ::unit-id int?)
-  (spec/def ::units-string (spec/coll-of (spec/cat ::amount ::unit-id)))
-
-  (spec/explain-data ::units-string
-                     (->>
-                      (partition 2)
-                      (map (fn [[amount unit-name]]
-                             (let [stripped-name (if (clojure.string/ends-with? unit-name "s")
-                                                   (subs unit-name 0 (dec (count unit-name)))
-                                                   unit-name)]
-                               [(Integer/parseInt "1") (get-unit-type-by-name "marine")]
-                               )))
-                      flatten)))
-
-(spec/def ::datascript-query
-  coll
-  :find-form
-  then :in-form
-  then :where-form
-  )
-
-(spec/def :find-form
-  (spec/cat :find-keyword #{:find}
-            :find-argument (spec/or
-                            ::lvar
-                            ::rule
-                            (spec/+
-                             ::destructured-find-argument
-                             (s/+ ::many-lvars))))
-  (or :lvar
-      (zero-one :destructured-form
-                (zero-one :many-lvars))
-      (zero-one :many-lvars)
-      )
-  )
-
-;;find argument can be
-
-(spec/def ::destructured-find-argument
-  (spec/cat (spec/* (spec/coll-of ::lvar :kind vector?))
-            (spec/? ::many-lvars)))
-
-(spec/def ::many-lvars #{'...})
-
-(spec/explain-data
- ::destructured-find-argument
- '[?thing ?sup ...])
-
-(spec/def :in-form
-  one keyword = :in
-  zero-one keyword = $ ;;db
-  zero-one keyword = % ;;rules
-  * :lvar
-  )
-
-(spec/def :where-form
-  one keyword = :where
-  * (spec/or
-     :eav
-     :rule
-     :binding
-     ))
-
-(spec/def ::eav
-  coll
-  any
-  (spec/or symbol? keyword?)
-  any
-  )
-
-(spec/def ::rule
-  (spec/cat :rule-name symbol?
-            :arguments (spec/* (spec/or :symbol symbol? :value any?))))
-
-(spec/def ::rule '(thing symboll nil))
-
-(spec/def ::lvar
-  (spec/and symbol? #(clojure.string/starts-with? % "?")))
-
-(require '[datascript.core :as ds])
-(require '[cljsc2.clj.game-parsing :refer [obs->facts knowledge-base ability-to-action]])
-(require 'cljsc2.clj.rules)
-
-(use 'cljsc2.clj.core)
-
-(def sc-process (start-client))
-
-(def connn (restart-conn))
-
-(load-simple-map connn)
-
-(do-sc2
- connn
- (fn [obs _] (def observation obs) [])
- {:run-until-fn (run-for 10)
-  :stepsize 1})
-
-(defn score [amount-unit-type-goal amount-unit-actual facts]
-  (first (ds/q '[:find [(avg ?score)]
-                 :with ?unit-type
-                 :in [[?unit-type [?wanted ?actual]] ...] % ?clamp-at
-                 :where
-                 [(/ ?actual ?wanted) ?actual-over-wanted]
-                 (clamp ?actual-over-wanted ?clamp-at ?score)]
-               (merge (into {}
-                            (map (fn [unit-type] [unit-type [1 0]])
-                                 (map first amount-unit-type-goal)))
-                      (into {}
-                            (map (fn [[type wanted actual]] [type [wanted actual]])
-                                 amount-unit-actual)))
-               cljsc2.clj.rules/clamp-at-rule
-               1)))
-
-(let [facts (ds/db-with
-             knowledge-base
-             (obs->facts observation))
-      amount-unit-goal (->>
-                        (->
-                         "13 SCVs"
-                         (clojure.string/replace #" and" "")
-                         (clojure.string/split #" "))
-                        (partition 2)
-                        (map (fn [[amount unit-name]]
-                               (let [stripped-name (if (clojure.string/ends-with? unit-name "s")
-                                                     (subs unit-name 0 (dec (count unit-name)))
-                                                     unit-name)]
-                                 [(Integer/parseInt amount) stripped-name]))))
-      amount-unit-type-goal (ds/q '[:find ?id ?amount
-                                    :in $ [[?amount ?unit-name] ...]
-                                    :where
-                                    [?unit-type-id :unit-type/name ?unit-name]
-                                    [?unit-type-id :unit-type/unit-id ?id]
-                                    ]
-                                  facts
-                                  amount-unit-goal)
-      amount-unit-actual (ds/q '[:find ?unit-type ?wanted (count ?unit)
-                                 :in $ [[?unit-type ?wanted] ...]
-                                 :where
-                                 [?unit :unit/unit-type ?unit-type]
-                                 ]
-                               facts
-                               amount-unit-type-goal)
-      scored (score amount-unit-type-goal amount-unit-actual facts)]
-  )
-
-;;we're gonna evolve an agent that decides what to build and when to build it, based of a goal we set ourselves we will rate how well it did.
-
-;;We score a result by seeing how much of the stated goal has been achieved.
-;;We'll try to code up a solution using the fact query mechanism ourselves first. Then we could get an overview of which parts of the solution we could arrive at using evolutionary algorithms.
-;;The algorithm will take the input of the game in the form of a bunch of facts and a goal.
-
-;;Let's pick an easy goal at first; just build one scv more than what we start with. We will get the unit type and amount from the string:
-
-(defn get-goal-unit-types-amounts [goal facts]
-  (let [amount-unit-goal (->>
-                          (->
-                           "13 SCVs"
-                           (clojure.string/replace #" and" "")
-                           (clojure.string/split #" "))
-                          (partition 2)
-                          (map (fn [[amount unit-name]]
-                                 (let [stripped-name (if (clojure.string/ends-with? unit-name "s")
-                                                       (subs unit-name 0 (dec (count unit-name)))
-                                                       unit-name)]
-                                   [(Integer/parseInt amount) stripped-name]))))
-        amount-unit-type-goal (ds/q '[:find ?id ?amount
-                                      :in $ [[?amount ?unit-name] ...]
-                                      :where
-                                      [?unit-type-id :unit-type/name ?unit-name]
-                                      [?unit-type-id :unit-type/unit-id ?id]
-                                      ]
-                                    facts
-                                    amount-unit-goal)]
-    amount-unit-type-goal))
+(defn execute-plans [& plans]
+  (let [contained-planner (first (filter #(instance? clojure.lang.Atom %) plans))
+        planner (if contained-planner
+                  (do (swap! contained-planner assoc :plans (apply concat (remove #(instance? clojure.lang.Atom %) plans)))
+                      contained-planner)
+                  (atom {:plans (apply concat plans)
+                         :env {}}))
+        executor-start-step-fn (plans-executor planner)
+        executor-step-fn (executor-start-step-fn
+                          (get-in (cljsc2.clj.core/request-observation connection) [:observation :observation])
+                          connection)]
+    [(run-sc
+      executor-step-fn
+      (fn [_] (finished? planner))
+      {}) planner]))
 
 
-(let [facts (ds/db-with
-             knowledge-base
-             (obs->facts observation))
-      goal "13 SCVs"
-      goal-data (get-goal-unit-types-amounts goal facts)]
-  goal-data)
-;; => #{[45 13]}
-;;That seems about right, 13 units of unit type 45. This should be enough pre-processing of our goal for the algorithm.
+(defn update-keep-gas-mined [{:keys [knowledge actions] :as env} _]
+  (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
+                                                       :SC2APIProtocol.raw$ActionRaw/action
+                                                       :SC2APIProtocol.raw$ActionRaw/unit-command
+                                                       :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
 
-;;We need a way to refer to this data throughout our application, we can bind them to names like programmers do with variables! We can generate symbols and then use these later.
+                                           actions)))
+        available-workers (clojure.set/difference (harvesting-units knowledge)
+                                                  occupied-casters)
+        added-mine-actions (reduce
+                            (fn [{:keys [actions available-workers]} [refinery-tag ideal assigned]]
+                              {:actions (concat actions (map #(ability-to-action [%] 295 refinery-tag {})
+                                                             (take (- ideal assigned) available-workers)))
+                               :available-workers (drop (- ideal assigned) available-workers)})
+                            {:actions actions
+                             :available-workers available-workers}
+                            (filter (fn [[_ ideal assigned]]
+                                      (and (= ideal 3)
+                                           (< assigned 3)))
+                                    (harvestable-units knowledge)))]
+    (assoc env :actions (:actions added-mine-actions))))
 
-(let [facts (ds/db-with
-             knowledge-base
-             (obs->facts observation))
-      goal "13 SCVs"
-      goal-data (get-goal-unit-types-amounts goal facts)
-      symbol-names (map (fn [data] (zipmap (repeatedly (count data) gensym) data))
-                        goal-data)]
-  symbol-names)
-;; => ({G__53704 45, G__53705 13})
+(defn keep-gas-mined []
+  [{:action-spec [:keeping-gas-mined update-keep-gas-mined]
+    :action-goals [{:type :env
+                    :evaluator (fn [_] false)}]
+    :remove-after-goal-attained :continuous}])
 
-(let [facts (ds/db-with
-             knowledge-base
-             (obs->facts observation))
-      goal "12 SCVs"
-      goal-data (get-goal-unit-types-amounts goal facts)
-      symbol-names (flatten (map (fn [data] (into [] (zipmap (repeatedly (count data) gensym) data)))
-                                 goal-data))]
-  `(let [~@symbol-names]
-     ())
-  goal-data)
+(defn build [unit-type & {:keys [until-count
+                                 near
+                                 remove-after-goal-attained
+                                 whenever-goals-succeed]
+                          :or {until-count 1 whenever-goals-succeed (fn [_ _])}}]
+  [{:action-spec [:unit-type unit-type
+                  :ability-id-query {:in '{?ability-name :unit-type}
+                                     :query '[[?build-me :unit-type/name ?ability-name]
+                                              [?build-me :unit-type/ability-id ?ability-id]]}
+                  :is-building-query {:in '{?ability-id :ability-id}
+                                      :query '[[?ab-e-id :ability-type/is-building ?is-building]
+                                               [?ab-e-id :ability-type/id ?ability-id]]}
+                  :is-refinery-query (fn [{:keys [ability-id] :as env} _]
+                                       (assoc env :is-refinery (= ability-id 320)))
+                  :footprint-radius-query {:in '{?ability-id :ability-id}
+                                           :query '[[?a :ability-type/id ?ability-id]
+                                                    [?a :ability-type/footprint-radius ?footprint-radius]]}
+                  :available-casters-query {:in '{?ability-id :ability-id}
+                                            :query '[[?unit-tag :unit/unit-type ?built-unit-type]
+                                                     [?t :unit-type/unit-id ?built-unit-type]
+                                                     [?t :unit-type/name ?name]
+                                                     [(+ 880000 ?ability-id) ?ab-e-id]
+                                                     [?t :unit-type/abilities ?ab-e-id]]
+                                            :find ['[?unit-tag ...]]
+                                            :transform-result set}
+                  :ability-order-already-issued-query {:in '{?ability-id :ability-id}
+                                                       :query '[[?unit-tag :unit/orders ?order]
+                                                                [?unit-tag :unit/unit-type ?type-id]
+                                                                [?order :order/ability-id ?ability-id]]
+                                                       :find '[?unit-tag ?order]
+                                                       :transform-result (fn [result] (set (map first result)))}
+                  :available-casters remove-occupied-casters
+                  :food-available-query {:query
+                                         '[[?l :player-common/food-used ?food-used]
+                                           [?l :player-common/food-cap ?food-cap]
+                                           [(- ?food-cap ?food-used) ?food-available]]
+                                         :from ['[?food-available]]}
+                  :do-times (if (= unit-type "SupplyDepot")
+                              (fn [{:keys [food-available ability-order-already-issued] :as env} _]
+                                (assoc env :do-times (- (inc (int (/ (- 13 food-available) 10)))
+                                                            (count ability-order-already-issued))))
+                              (fn [{:keys [is-building ability-order-already-issued] :as env} _]
+                                (assoc env :do-times (- (if is-building 1 1)
+                                                        (count ability-order-already-issued)))))
+                  :actions update-build-actions]
+    :action-goals [{:unit-type unit-type
+                    :type :until-count
+                    :amount (if (= unit-type "SupplyDepot") 21 until-count)}]
+    :remove-after-goal-attained (if (= unit-type "SupplyDepot") :continuous remove-after-goal-attained)
+    :goals-succeeded-action whenever-goals-succeed}])
 
-(defn collect-timed-actions [observation]
-  (let [facts (ds/db-with
-               knowledge-base
-               (obs->facts observation))
-        goal "13 SCVs"
-        goal-data (get-goal-unit-types-amounts goal facts)]
-    (flatten (map (fn [[unit-type required-amount]]
-                    (let [[unit-tag ability-id after-steps]
-                          (first (ds/q '[:find ?unit-tag ?ability-id ?after-steps
-                                         :in $ % ?build-unit-type
-                                         :where
-                                         (can-build-type ?build-unit-type ?ability-id ?unit-tag)
-                                         [(+ 990000 ?build-unit-type) ?unit-e-type]
-                                         [?unit-e-type :unit-type/build-time ?after-steps]]
-                                       facts
-                                       cljsc2.clj.rules/can-build-type-rule
-                                       unit-type
-                                       ))
-                          timed-actions [{:after-steps after-steps :action (ability-to-action [unit-tag] ability-id)}]]
-                      timed-actions))
-                  goal-data))))
+(defn select [unit-type & {:keys [and-do at-least whenever-goals-succeed remove-after-goal-attained]
+                           :or {at-least 1
+                                whenever-goals-succeed (fn [& _])
+                                remove-after-goal-attained true}}]
+  (concat
+   [{:action-spec [:unit-type unit-type
+                         :selected-query {:in '{?unit-type :unit-type}
+                                          :query '[[?ut-e :unit-type/name ?unit-type]
+                                                   [?ut-e :unit-type/unit-id ?ut-id]
+                                                   [?unit-tag :unit/unit-type ?ut-id]]
+                                          :find ['[?unit-tag ...]]
+                                          :as [:selected unit-type]
+                                          :transform-result set}]
+           :action-goals [{:type :env
+                           :unit-type unit-type
+                           :at-least-count at-least
+                           :evaluator (fn [{:keys [env]}]
+                                        (>= (or (count (get-in env [:selected unit-type])) 0)
+                                            at-least))}]
+           :goals-succeeded-action whenever-goals-succeed
+     :remove-after-goal-attained remove-after-goal-attained}]
+   and-do))
 
-;;we have actions available that need to be run after a while, but those actions will be sent again when the function is run again
-;;I might think I need to put the potato in the oven after it gets hot, but how would I remember to re-consider if enough time passed. The action is unique in the case of an oven, but in case of building an scv, that should be done whenever there is no queue and there is no priority on other units. Tracking what lead to a decision decides its identity. We can see in the future schedule whether action with same reasons is there, if not schedule too, need to make current plan input to fn and then make output a revised plan.
-;;for now we can just schedule the action, and call new actions after a certain amount of steps or until previous actions are in effect.
+(defn update-attack-actions [{:keys [attack-at attack-with] :as env} _]
+  (let [attack-actions (mapcat (fn [[_ unit-tags]] (map #(ability-to-action [%] 23 (first attack-at) (second attack-at) {})
+                                                        unit-tags))
+                               attack-with)]
+    (update env :actions (fn [actions-so-far] (concat actions-so-far attack-actions)))))
 
-(def stepsize 120)
+(defn resolve-location [location]
+  (fn [{:keys [knowledge connection] :as env} _]
+    (let [{:keys [x y]} (case location
+                          :enemy-base (ffirst (ds/q '[:find [?locations ...]
+                                                      :where [_ :game-info/start-locations ?locations]]
+                                                    knowledge))
+                          [15 15])]
+      (assoc env :attack-at [x y]))))
 
-(do-sc2
- connn
- (let [plan (atom {})]
-   (fn [observation _]
-     (let [actions (collect-timed-actions observation)]
-       (cond
-         (running-too-long observation) nil
-         (or (actions-done-over-200-steps-ago plan)
-             (over-500-step-since-last-plan plan))
-         (do
-           (swap! plan assoc :latest-plan actions)
-           (swap! plan assoc :latest-plan-step plan)
-           (actions-within-stepsize actions stepsize))
-         :default [])
-       )
-     ))
- {:collect-observations true
-  :stepsize stepsize})
+(defn attack [& {:keys [at-location
+                        remove-after-goal-attained
+                        whenever-goals-succeed] :or
+                 {remove-after-goal-attained true
+                  whenever-goals-succeed (fn [_ _])}}]
+  [{:action-spec [:attack-at (resolve-location at-location)
+                  :attack-with :selected
+                  :actions update-attack-actions]
+    :action-goals [{:type :env
+                    :evaluator (fn [_] true)}]
+    :goals-succeeded-action whenever-goals-succeed
+    :remove-after-goal-attained remove-after-goal-attained}])
 
-(defn actions-within-stepsize [actions now stepsize]
-  (->>
-   actions
-   (filter (fn [{:keys [at-step]}]
-             (<= at-step (+ now stepsize))))
-   (map :action)))
+(defn add-plan [plan]
+  (fn [env planner]
+    (swap! planner update :new-plans concat plan)))
 
-(do-sc2
- connn
- (let [plan (atom {})]
-   (fn [observation _]
-     (let [actions (collect-timed-actions observation)
-           game-loop (:game-loop observation)
-           latest-plan (:latest-plan @plan)]
-       (cond
-         (> game-loop 10000) nil
-         (if latest-plan
-           (- game-loop (:at-step (apply max-key :at-step (vec latest-plan))))
-           true)
-         (do
-           (println "new-plan-addition" actions)
-           (swap! plan update :latest-plan
-                  (fn [plan] (concat latest-plan
-                                     (map (fn [action] (dissoc (assoc action :at-step
-                                                                      (+ (:after-steps action)
-                                                                         game-loop))
-                                                               :after-steps))
-                                          actions))))
-           (swap! plan assoc :latest-plan-step game-loop)
-           (actions-within-stepsize (:latest-plan @plan) game-loop stepsize))
-         :default [])
-       )
-     ))
- {:collect-observations true
-  :stepsize stepsize})
+(defn add-plans [& plans]
+  (fn [env planner]
+    (swap! planner update :new-plans concat (apply concat plans))))
+
+(defn x-y-army-units [knowledge]
+  (ds/q '[:find ?x ?y
+          :where
+          [?u :unit/x ?x]
+          [?u :unit/y ?y]
+          [?u :unit/unit-type ?unit-type]
+          [(not= ?unit-type 45)]
+          [?ut-e-id :unit-type/unit-id ?unit-type]
+          [?ut-e-id :unit-type/weapons]
+          ]
+        knowledge))
+
+(defn move-camera-to-coords-action [x y]
+  #:SC2APIProtocol.sc2api$Action
+  {:action-raw #:SC2APIProtocol.raw$ActionRaw
+   {:action #:SC2APIProtocol.raw$ActionRaw
+    {:camera-move #:SC2APIProtocol.raw$ActionRawCameraMove
+     {:center-world-space #:SC2APIProtocol.common$Point{:x x :y y}}}}})
+
+(defn update-camera-follow-actions [{:keys [actions knowledge] :as env} _]
+  (let [xys (x-y-army-units knowledge)]
+    (case (count xys)
+      0 env
+      1 (assoc env :actions (concat [(move-camera-to-coords-action
+                                      (ffirst xys)
+                                      (second (first xys)))]
+                                    actions))
+      (let [identified-clusters (dbscan/dbscan euclidean 5 2 xys)
+            [x y] (if (not (empty? identified-clusters))
+                    (->>
+                     identified-clusters ;;identify clusters
+                     (group-by val)      ;;group them by group id
+                     (apply max-key (comp count val)) ;;find the biggest group
+                     val ;;take the groups
+                     (map (comp first)) ;;get their x-y
+                     ((fn [c]
+                        [(lambda-ml.core/mean (map first c))
+                         (lambda-ml.core/mean (map second c))])) ;;calculate mean
+                     )
+                    [(ffirst xys) (second (first xys))])]
+        (assoc env :actions (concat [(move-camera-to-coords-action x y)]
+                                    actions))))))
+
+(defn camera-follow-army [& {:keys
+                             [remove-after-goal-attained
+                              whenever-goals-succeed] :or
+                             {remove-after-goal-attained true
+                              whenever-goals-succeed (fn [_ _])}}]
+  [{:action-spec [:actions update-camera-follow-actions]
+    :action-goals [{:type :env
+                    :evaluator (fn [_] false)}]
+    :goals-succeeded-action whenever-goals-succeed
+    :remove-after-goal-attained :continuous}])
+
+#_(execute-plans
+ (build "SCV" :until-count 25)
+ (build "Refinery")
+ (build "SupplyDepot")
+ (build "Barracks"
+        :whenever-goals-succeed (add-plans
+                                 (build "Factory")
+                                 (build "Refinery" :until-count 2)
+                                 (build "Cyclone" :until-count 3)
+                                 (select "Cyclone" :at-least 3
+                                         :and-do (select "Marine" :at-least 15)
+                                         :whenever-goals-succeed
+                                         (add-plan (attack :at-location :enemy-base)))
+                                 ))
+ (build "Marine" :until-count 5)
+ (keep-gas-mined)
+ (camera-follow-army))

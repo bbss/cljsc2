@@ -11,6 +11,7 @@
                  [fulcrologic/fulcro "2.5.2"]
                  [org.clojure/core.async  "0.3.443"]
                  [org.clojure/core.logic "0.8.11"]
+                 [expound "0.6.0"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
                  [binaryage/chromex "0.5.15"]
                  [cider/piggieback "0.3.4"]
@@ -42,7 +43,8 @@
                  [ring "1.6.3"]
                  [ring/ring-defaults "0.3.1"]
                  [compojure "1.5.1"]
-                 [clojupyter "0.2.1-SNAPSHOT" :exclusions [org.clojure/tools.reader]]]
+                 [clojupyter "0.2.1-SNAPSHOT" :exclusions [org.clojure/tools.reader]]
+                 [lambda-ml "0.1.1"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
