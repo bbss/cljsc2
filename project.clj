@@ -13,6 +13,7 @@
                  [org.clojure/core.logic "0.8.11"]
                  [org.clojars.ghaskins/protobuf "3.3.1-1"]
                  [binaryage/chromex "0.5.15"]
+                 [cider/piggieback "0.3.4"]
                  [aleph "0.4.4"]
                  [im.chit/lucid.mind "1.3.13"]
                  [instaparse "1.4.7"]
@@ -43,7 +44,7 @@
                  [compojure "1.5.1"]
                  [clojupyter "0.2.1-SNAPSHOT" :exclusions [org.clojure/tools.reader]]]
 
-  :plugins [[lein-figwheel "0.5.14"]
+  :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
             [lein-environ "1.1.0"]
             [lein-jupyter "0.1.14"]]
@@ -53,7 +54,7 @@
   :jvm-opts ["--add-modules" "java.xml.bind"] ;;for java9
 
   :cljsbuild {:builds
-              [{:id "dev"
+              [#_{:id "dev"
                 :source-paths ["src/cljsc2/cljs"]
 
                 ;; The presence of a :figwheel configuration here
@@ -71,13 +72,13 @@
                            ;; https://github.com/binaryage/cljs-devtools
                                         ; ctrl-f is the default keystroke
                            :preloads [devtools.preload]}}
-               #_{:id "dev"
+               {:id "dev"
                 :source-paths ["src/cljsc2/cljs"]
 
                 ;; The presence of a :figwheel configuration here
                 ;; will cause figwheel to inject the figwheel client
                 ;; into your build
-                :figwheel {:on-jsload "cljsc2.cljs.core/on-js-reload"
+                :figwheel {:on-jsload "cljsc2.cljs.content-script.core/on-js-reload"
                            ;; :open-urls will pop open your application
                            ;; in the default browser once Figwheel has
                            ;; started and compiled your application.
@@ -85,10 +86,10 @@
                            ;; :open-urls ["http://localhost:3449/index.html"]
                            }
 
-                :compiler {:main cljsc2.cljs.core
-                           :asset-path "js/compiled/out"
-                           :output-to "resources/public/js/compiled/cljsc2.js"
-                           :output-dir "resources/public/js/compiled/out"
+                :compiler {:main cljsc2.cljs.mount
+                           :asset-path "/static/notebook/js/compiled/out"
+                           :output-to "/usr/local/opt/python/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages/notebook/static/notebook/js/compiled/cljsc2.js"
+                           :output-dir "/usr/local/opt/python/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages/notebook/static/notebook/js/compiled/out"
                            :source-map-timestamp true
                            ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
                            ;; https://github.com/binaryage/cljs-devtools
@@ -149,18 +150,17 @@
   :profiles {:dev {:env {:proto-grammar "resources/proto.ebnf"
                          :proto-dir "resources/s2clientprotocol/"}
                    :dependencies [[binaryage/devtools "0.9.4"]
-                                  [figwheel-sidecar "0.5.14"]
-                                  [com.cemerick/piggieback "0.2.2"]
-                                  [org.clojure/tools.nrepl "0.2.12"]]
-                   :plugins [[cider/cider-nrepl "0.16.0"]]
+                                  [figwheel-sidecar "0.5.16"]
+                                  [org.clojure/tools.nrepl "0.2.13"]]
+                   :plugins [[cider/cider-nrepl "0.17.0"]]
                    ;; need to add dev source path here to get user.clj loaded
                    :source-paths ["src/cljsc2/cljs"
                                   "dev"]
                    ;; for CIDER
                    ;;:plugins [[cider/cider-nrepl "0.16.0"]]
-                   :repl-options {:nrepl-middleware [cemerick.piggieback/wrap-cljs-repl]}
+                   :repl-options {:nrepl-middleware [cider.piggieback/wrap-cljs-repl]}
                    ;; need to add the compliled assets to the :clean-targets
-                   :clean-targets ^{:protect false} ["resources/public/js/compiled"
+                   :clean-targets ^{:protect false} ["/usr/local/opt/python/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages/notebook/static/notebook/js/compiled"
                                                      "resources/unpacked/compiled/"
                                                      :target-path]}
 })

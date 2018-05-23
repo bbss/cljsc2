@@ -24,11 +24,16 @@
                   (dom/button #js {:key id
                                    :onClick (fn [s] (action-select id ability-name requires-point))
                                    :disabled (= id (:ability-id selected-ability))}
-                              (str ability-name " " requires-point)))
+                              (str ability-name)))
                 (ds/q '[:find ?ability-id ?ability-name
-                        :in $ [?ability-id ...]
+                        :in $ [?ability-id ...] %
                         :where
                         [?e :ability-type/id ?ability-id]
-                        [?e :ability-type/name ?ability-name]]
+                        [?e :ability-type/name ?ability-name]
+                        ]
                       @knowledge-base
-                      (map :ability-id available-abilities)))))
+                      (map :ability-id available-abilities)
+                      '[[(has-req-point-or-nil ?unit-tag ?requires-point)
+                         [?unit-tag :ability-type/requires-point ?requires-point]]
+                        [(has-req-point-or-nil ?unit-tag)
+                         [(= ?requires-point nil)]]]))))

@@ -86,6 +86,7 @@
                    (set! (.-fillStyle ctx) "rgba(0, 255, 31, 0.32")
                    (.fillRect ctx sx sy (- ex sx) (- ey sy)))))))))
 
+
 (defsc Observation [this _]
   {:query [{:feature-layer-data [{:minimap-renders []}
                                  {:renders []}]}
@@ -548,11 +549,6 @@
    :ident [:run-config/by-id :db/id]
    :form-fields #{:run-config/step-size :run-config/run-size
                   :run-config/restart-on-episode-end}}
-  (set! js/window.cljsc_execute
-        (fn [cell]
-          (clj->js {:cell-id (.-cell_id cell)
-                    :run-for run-size
-                    :step-size step-size})))
   (dom/div
    (dom/button #js {:onClick #(make-savepoint)}
                (str "Set the time-travel savepoint at " game-loop))
@@ -597,7 +593,6 @@
    (ui-timeline runs
                 run-size
                 step-size)))
-
 
 (defsc Run [this {:keys [db/id :run/observations]}]
   {:query [{:run/observations (prim/get-query Observation)}
@@ -656,6 +651,9 @@
   (remote [env] true))
 
 (def ui-run-config (prim/factory RunConfig))
+
+(defn paste-first-element [text]
+  (.setValue (.-CodeMirror (aget (js/document.querySelectorAll ".CodeMirror") 0)) text))
 
 (defsc Process [this {:keys [db/id
                              process/port
@@ -739,6 +737,45 @@
                       :process/load-savepoint #(prim/transact!
                                                 this
                                                 `[(load-savepoint ~{:port port})])}))
+     (dom/button
+      #js {:onClick
+           (fn [e]
+             (paste-first-element
+              (str '(execute-plans))))} "Add inactive run")
+     (dom/button
+      #js {:onClick
+           (fn [e]
+             (paste-first-element
+              (str '(execute-plans
+                     (build "SCV" :until-count 25)
+                     (build "SupplyDepot")
+                     (build "Barracks" :until-count 5)
+                     (build "Marine" :until-count 1000)
+                     (select "Marine" :at-least 10
+                             :whenever-goals-succeed
+                             (add-plan (attack :at-location :enemy-base)))
+                     ))))} "Add 5rax Marine build")
+     (dom/button
+      #js {:onClick
+           (fn [e]
+             (paste-first-element
+              (str '(execute-plans
+                     (build "SCV" :until-count 25)
+                     (build "Refinery")
+                     (build "SupplyDepot")
+                     (build "Barracks"
+                            :whenever-goals-succeed (add-plans
+                                                     (build "Factory")
+                                                     (build "Refinery" :until-count 2)
+                                                     (build "Cyclone" :until-count 3)
+                                                     (select "Cyclone" :at-least 3
+                                                             :and-do (select "Marine" :at-least 15)
+                                                             :whenever-goals-succeed
+                                                             (add-plan (attack :at-location :enemy-base)))
+                                                     ))
+                     (build "Marine" :until-count 5)
+                     (keep-gas-mined)
+                     (camera-follow-army)))))} "Add marine/cyclones build")
      (ui-game-info port runs camera food-used food-cap minerals vespene)
      (ui-canvas this local-state port draw-size-minimap draw-size render-size
                 minimap-size selected-ability selected-minimap-layer-path selected-render-layer-path x y))))
@@ -772,11 +809,12 @@
                             :value absolute-path}
                        file-name))
          available-maps))
-   (dom/h4 "Execute commands on port:"
+   #_(dom/h4 "Commands will be executed on:"
            (dom/select
             #js {:value 5000
                  :onChange (fn [e] (pri "implement"))}
-            (map (comp dom/option :process/port) processes)))))
+            (map (fn [{:keys [process/port]}] (dom/option #js {:key port} port))
+                 processes)))))
 
 (def ui-process-starter (prim/factory ProcessStarter))
 
@@ -788,7 +826,7 @@
   (dom/div #js {:style #js {"margin" 10
                             "marginLeft" 65}}
            (when (empty? processes)
-             (dom/h3 "There are no starcraft processes running yet. Why don't you start one?"))
+             (dom/h3 "There are no starcraft processes running yet, they will start automatically when you run a code cell. (play button or shortcut ctrl-enter)"))
            (when (not (empty? process-starter)) (ui-process-starter (prim/computed process-starter {:processes processes})))
            (map #(ui-process (prim/computed % {:knowledge-base starcraft-static-data}))
                 processes)))
@@ -811,10 +849,19 @@
   (prim/merge-component! reconciler Run run
                          :append [:process/by-id process-id :process/runs]))
 
+(defmethod push-received :savepoint-added
+  [{:keys [reconciler] :as app} {{:keys [ident-path savepoint-at]} :msg}]
+  (let [state (prim/app-state reconciler)]
+    (swap! state assoc-in (conj ident-path :process/savepoint-at) savepoint-at)))
+
 (defmethod push-received :run-config-added
-  [{:keys [reconciler] :as app} {{:keys [run-config]} :msg}]
+  [{:keys [reconciler] :as app} {{:keys [run-config process-ident]} :msg}]
   (let [form-merged (fs/add-form-config RunConfig run-config)]
-    (prim/merge-component! reconciler RunConfig form-merged)))
+    (prim/merge-component! reconciler RunConfig form-merged)
+    #_(prim/merge-component! reconciler Process {:db/id 1
+                                                 :process/run-config run-config})
+    (swap! (prim/app-state reconciler) (fn [s]
+                                         (assoc-in s (conj process-ident :process/run-config) [:run-config/by-id (:db/id run-config)] )))))
 
 (defmethod push-received :run-ended
   [{:keys [reconciler] :as app} {{:keys [ident-path ended-at]} :msg}]
@@ -866,6 +913,7 @@
              (-> s
                  (assoc-in (conj ident-path :process/game-info)  value))))))
 
+
 (defmethod push-received :latest-response [{:keys [reconciler] :as app}
                                            {{:keys [response ident-path]} :msg}]
   (let [state (prim/app-state reconciler)]
@@ -884,7 +932,7 @@
                              {:host (case :remote-staging
                                           :local "0.0.0.0:3446"
                                           :local-staging "192.168.1.94:3446"
-                                          :remote-staging "MY IP"
+                                          :remote-staging "cljsc.org:3446"
                                           (pri "no ip for env"))
                               :push-handler (fn [m]
                                               (push-received @app m))
