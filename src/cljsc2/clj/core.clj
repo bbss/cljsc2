@@ -172,6 +172,14 @@
     {:actions
      [action]}}))
 
+(defn send-actions-and-get-response [connection actions]
+  (send-request-and-get-response-message
+   connection
+   #:SC2APIProtocol.sc2api$RequestAction
+   {:action #:SC2APIProtocol.sc2api$RequestAction
+    {:actions
+     actions}}))
+
 (defn request-step [connection stepsize]
   (send-request-and-get-response-message
    connection

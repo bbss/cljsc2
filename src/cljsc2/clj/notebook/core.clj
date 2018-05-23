@@ -41,7 +41,7 @@
    )
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
-(defonce notebook
+#_(defonce notebook
   (let [rt (Runtime/getRuntime)
         proc (.exec rt (str "jupyter" " notebook"))]
     proc))
@@ -208,8 +208,7 @@
                  :run/run-config [:run-config/by-id latest-run-config-id]
                  :db/id id}
         new-run-config (merge (get-in @server-db [:run-config/by-id latest-run-config-id])
-                              {:db/id new-run-config-id})
-        ]
+                              {:db/id new-run-config-id})]
     (swap! server-db #(-> %
                           (assoc-in ident-path new-run)
                           (prim/integrate-ident ident-path
@@ -237,60 +236,109 @@
             (Thread/sleep 10000)
             (cljsc2.clj.core/flush-incoming-responses conn)))))
 
-(defn run-on-conn
-  ([server-db port process-conn agent-fn step-size run-for-steps]
-   (run-on-conn server-db port process-conn agent-fn step-size run-for-steps {}))
-  ([server-db port process-conn agent-fn step-size run-for-steps options]
-   (let [run (add-run server-db port)
-         ready? (ready-for-actions? process-conn)
-         restart-on-episode-end (get-in @server-db
-                                        (conj (:run/run-config run)
-                                              :run-config/restart-on-episode-end))]
-     (when-not ready? (do (load-new-game process-conn (val (first (:map-config/by-id @server-db))))
-                          (add-game-info server-db port)))
-     (let [run-result
-           (cljsc2.clj.core/do-sc2
-            process-conn
-            agent-fn
-            (merge
-             {:stepsize step-size
-              :run-until-fn (cljsc2.clj.core/run-for run-for-steps)
-              :run-for-steps run-for-steps
-              :additional-listening-fns [(fn [observation connection]
-                                           (add-observation server-db port (:db/id run) observation))]
-              :run-started-cb (run-started server-db (:db/id run) port)
-              :run-ended-cb (run-ended server-db (:db/id run) port)}
-             options))
-           {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?]} (nth run-result 2)]
-       (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
-       (if restart-on-episode-end
-         (if (and game-ended? (not run-ended?))
-           (concat [run-result] (run-on-conn server-db port process-conn agent-fn step-size
-                                             (- run-for-steps ran-for-steps)))
-           [run-result])
-         [run-result])))))
+(declare server-db)
 
-(defn do-run-code [server-db code port run-for step-size]
-  (let [process-conn (get-conn server-db port)
-        agent-fn (eval (read-string code))]
-    (run-on-conn server-db port process-conn agent-fn step-size run-for)))
+(defn get-selected-connection [server-db]
+  (get-conn server-db 5000))
+
+(declare port)
+
+(declare connection)
+
+(defn make-ready [server-db connection]
+  (if-not (ready-for-actions? connection)
+    (do (load-new-game connection (val (first (:map-config/by-id @server-db))))
+        (add-game-info server-db 5000)
+        (cljsc2.clj.core/quick-save connection)
+        (swap! server-db
+               (fn [s]
+                 (-> s
+                     (assoc-in [:process/by-id 5000 :process/savepoint-at]
+                               1))))
+        (doseq [id (:any @(:connected-uids ws))]
+          (push ws id :savepoint-added {:ident-path [:process/by-id 5000]
+                                        :savepoint-at 1}))
+        connection)
+    connection))
+
+(defn is-action? [obj]
+  (and
+   (map? obj)
+   (not (empty? (select-keys obj
+                             [:SC2APIProtocol.sc2api$Action/action-raw
+                              :SC2APIProtocol.sc2api$Action/action-feature-layer
+                              :SC2APIProtocol.sc2api$Action/action-render
+                              :SC2APIProtocol.sc2api$Action/action-ui
+                              :SC2APIProtocol.sc2api$Action/action-chat])))))
+
+(defn run-sc [agent-fn run-end-fn {:keys [init-fn run-for-steps ran-for-steps game-loop
+                                          run-ended? game-ended?]}]
+  (try
+    (let [run (add-run server-db
+                         port)
+            {:keys [run-config/step-size
+                    run-config/restart-on-episode-end
+                    run-config/run-size] :as run-config} (get-in @server-db (:run/run-config run))]
+        (let [run-result
+              (cljsc2.clj.core/do-sc2
+               connection
+               agent-fn
+               {:stepsize step-size
+                :run-until-fn (cljsc2.clj.core/run-for (or run-for-steps run-size))
+                :run-for-steps run-for-steps
+                :additional-listening-fns [(fn [observation connection]
+                                             (add-observation server-db port (:db/id run) observation))]
+                :run-started-cb (run-started server-db (:db/id run) port)
+                :run-ended-cb (run-ended server-db (:db/id run) port)})
+              {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?] :as run-info} (nth run-result 2)]
+          (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
+          (if restart-on-episode-end
+            (if (and game-ended? (not run-ended?))
+              (concat [run-result] (run-sc agent-fn run-end-fn
+                                           (assoc run-info :run-for-steps
+                                                  (- run-for-steps ran-for-steps))))
+              [run-result])
+            [run-result])))
+    (catch Exception e (timbre/error e))))
 
 (defn msg->code [message _]
-  (let [{:keys [cljsc code]} (:content message)
-        {:keys [port run-for step-size] :or {port 5000
-                                             step-size 1
-                                             run-for 200}} cljsc]
-    (if cljsc
-      (str
-       `(println "do-sc2" ~cljsc)
-       `(load-file "src/cljsc2/clj/notebook/kernel.clj")
-       `(in-ns 'cljsc2.clj.kernel)
-       `(use 'cljsc2.clj.core)
-       `(do-run-code server-db ~code ~port ~run-for ~step-size))
-      code)))
-
-#_(doseq [[k v] @kernels]
-    (reset! (second v) true))
+  (try
+    (let [{:keys [code]} (:content message)
+            parsed-code (read-string code)]
+        (str
+         `(println "Running..")
+         `(load-file "src/cljsc2/clj/notebook/kernel.clj")
+         `(in-ns 'cljsc2.clj.kernel)
+         `(use 'cljsc2.clj.core)
+         `(use 'cljsc2.clj.build-order)
+         "(with-redefs [cljsc2.clj.notebook.core/port 5000
+                    cljsc2.clj.notebook.core/connection (cljsc2.clj.notebook.core/make-ready
+                                  cljsc2.clj.notebook.core/server-db
+                                  (cljsc2.clj.notebook.core/get-selected-connection
+                                    cljsc2.clj.notebook.core/server-db))
+                    connection (cljsc2.clj.notebook.core/make-ready
+                                  cljsc2.clj.notebook.core/server-db
+                                  (cljsc2.clj.notebook.core/get-selected-connection
+                                    cljsc2.clj.notebook.core/server-db))]"
+         (cond
+           (is-action? parsed-code) (if (spec/valid? :SC2APIProtocol.sc2api/Action
+                                                     parsed-code)
+                                      (str "(cljsc2.clj.core/send-action-and-get-response connection " code ")")
+                                      (str "(expound/expound :SC2APIProtocol.sc2api/Action "
+                                           parsed-code
+                                           ")"))
+           (and (not (empty? parsed-code))
+                (every? is-action? parsed-code)) (if (every? (partial spec/valid? :SC2APIProtocol.sc2api/Action)
+                                                             parsed-code)
+                                                   (str "(cljsc2.clj.core/send-action-and-get-response connection " code ")")
+                                                   (str "(expound/expound (spec/coll-of :SC2APIProtocol.sc2api/Action) "
+                                                        parsed-code
+                                                        ")"))
+           (= (first parsed-code) 'fn) (run-sc parsed-code)
+           :else code)
+         ")"))
+    (catch Exception e (do (timbre/debug e)
+                           (.toString e)))))
 
 (def kernels (atom {}))
 
@@ -454,7 +502,8 @@
             (cljsc2.clj.core/quick-load conn)
             (cljsc2.clj.core/request-step conn 1)
             (add-observation server-db port run-id
-                             (:observation (:observation (cljsc2.clj.core/request-observation conn)))))))
+                             (:observation (:observation (cljsc2.clj.core/request-observation conn))))
+            {})))
 
 (defmutation cljsc2.cljs.content-script.core/send-action
   [{:keys [action port]}]
@@ -472,7 +521,8 @@
 
 (defmutation cljsc2.cljs.content-script.core/update-map [{:keys [id path]}]
   (action [env]
-          (swap! server-db assoc-in [:map-config/by-id id :map-config/path] path)))
+          (do (swap! server-db assoc-in [:map-config/by-id id :map-config/path] path)
+              {})))
 
 (defmutation cljsc2.cljs.content-script.core/submit-run-config [params]
   (action [env]

@@ -116,57 +116,65 @@
    :upgrade-type-attributes (vals upgrade-keymap)
    :order-attributes (vals order-type-keymap)})
 
-(defn obs->facts [{:keys [game-loop player-common raw-data]}]
-  (let [{:keys [minerals vespene food-cap food-used food-workers
-                idle-worker-count army-count player-id food-cap]} player-common
-        game-loop-id (+ 1234000000 game-loop)]
-    (concat [{:db/id game-loop-id
-              :player-common/minerals minerals
-              :player-common/vespene vespene
-              :player-common/food-used food-used
-              :player-common/food-cap food-cap
-              :player-common/food-workers food-workers
-              :player-common/idle-worker-count idle-worker-count
-              :player-common/army-count army-count}
-             {:db/id -1 :meta/latest-game-loop game-loop}
-             {:db/id -2 :meta/player-id player-id}]
-            (map
-             (fn [unit]
-               (let [namespaced-unit (merge (clojure.set/rename-keys
-                                             (select-keys
-                                              unit
-                                              (vals unit-keymap))
-                                             unit-keymap)
-                                            {:db/id (:tag unit)
-                                             :unit/x (:x (:pos unit))
-                                             :unit/y (:y (:pos unit))
-                                             :unit/z (:z (:pos unit))
-                                             :unit/buff-ids (map #(+ 660000 %)
-                                                                 (:buff-ids unit))})]
-                 (if (:unit/orders namespaced-unit)
-                   (update
-                    namespaced-unit
-                    :unit/orders
-                    (fn [orders]
-                      (map (fn [order] (* (:tag unit)
-                                          (:ability-id order)))
-                           orders)))
-                   namespaced-unit)))
-             (:units raw-data))
-            (mapcat
-             (fn [unit]
-               (if (:orders unit)
-                 (map (fn [order]
-                        (merge (clojure.set/rename-keys
-                                (select-keys
-                                 order
-                                 (vals order-type-keymap))
-                                order-type-keymap)
-                               {:db/id (* (:tag unit) (:ability-id order))}))
-                      (:orders unit))
-                 []))
-             (:units raw-data))
-            )))
+(defn obs->facts
+  ([{:keys [minerals vespene food-cap food-used food-workers
+            idle-worker-count army-count player-id food-cap] :as raw-data}]
+   (obs->facts raw-data {}))
+  ([{:keys [game-loop player-common raw-data]} {{:keys [start-raw]} :game-info}]
+   (let [{:keys [minerals vespene food-cap food-used food-workers
+                 idle-worker-count army-count player-id food-cap]} player-common
+         game-loop-id (+ 1234000000 game-loop)]
+     (concat [{:db/id game-loop-id
+               :player-common/minerals minerals
+               :player-common/vespene vespene
+               :player-common/food-used food-used
+               :player-common/food-cap food-cap
+               :player-common/food-workers food-workers
+               :player-common/idle-worker-count idle-worker-count
+               :player-common/army-count army-count}
+              {:db/id -1 :meta/latest-game-loop game-loop}
+              {:db/id -2 :meta/player-id player-id}]
+             (map
+              (fn [unit]
+                (let [namespaced-unit (merge (clojure.set/rename-keys
+                                              (select-keys
+                                               unit
+                                               (vals unit-keymap))
+                                              unit-keymap)
+                                             {:db/id (:tag unit)
+                                              :unit/x (:x (:pos unit))
+                                              :unit/y (:y (:pos unit))
+                                              :unit/z (:z (:pos unit))
+                                              :unit/buff-ids (map #(+ 660000 %)
+                                                                  (:buff-ids unit))})]
+                  (if (:unit/orders namespaced-unit)
+                    (update
+                     namespaced-unit
+                     :unit/orders
+                     (fn [orders]
+                       (map (fn [order] (* (:tag unit)
+                                           (:ability-id order)))
+                            orders)))
+                    namespaced-unit)))
+              (:units raw-data))
+             (mapcat
+                   (fn [unit]
+                     (if (:orders unit)
+                       (map (fn [order]
+                              (merge (clojure.set/rename-keys
+                                      (select-keys
+                                       order
+                                       (vals order-type-keymap))
+                                      order-type-keymap)
+                                     {:db/id (* (:tag unit) (:ability-id order))}))
+                            (:orders unit))
+                       []))
+                   (:units raw-data))
+             (when-let [{:keys [playable-area start-locations]} start-raw]
+               [{:db/id -1
+                 :game-info/playable-area playable-area
+                 :game-info/start-locations (or start-locations [10 10])}]))
+     )))
 
 (defn distance [x1 y1 x2 y2]
   (let [dx (- x2 x1), dy (- y2 y1)]
