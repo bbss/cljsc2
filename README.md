@@ -1,4 +1,6 @@
-# cljsc2
+# cljsc2 
+[中文](README-chinese.md)
+
 `cljsc2` let you use the StarCraft II AI API from Clojure using regular Clojure namespaced maps for interaction.
 
 It generates clojure.spec specifications for all the endpoint the SC2 API exposes and serializes requests over a protobuf websocket connection to running instances of the game.
