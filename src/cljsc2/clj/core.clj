@@ -1,6 +1,6 @@
 (ns cljsc2.clj.core
   (:require
-   [manifold.stream :as s :refer [stream]]
+   [manifold.stream :as strm :refer [stream]]
    [manifold.deferred :as d]
    [aleph.http :as http]
    [perseverance.core :as p]
@@ -8,17 +8,18 @@
    [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]]
    [cljsc2.clj.proto :refer [ugly-memo-make-protobuf]]
    [cljsc2.clj.rendering :refer [mp4-file-path->markdown-html run-result->mp4-file-path]]
+   [taoensso.timbre :as timbre]
    ))
 
 (defn to-byte [it]
   (.toByteArray it))
 
 (defn send-request [connection request]
-  (s/put! connection
+  (strm/put! connection
           (to-byte
            (ugly-memo-make-protobuf
-                   #:SC2APIProtocol.sc2api$Request
-                   {:request request}))))
+            #:SC2APIProtocol.sc2api$Request
+            {:request request}))))
 
 (defn quit [connection]
   (send-request
@@ -34,24 +35,41 @@
 
 (defn restart-conn
   ([] (restart-conn "127.0.0.1" 5000))
-  ([host port] (restart-conn (str "ws://" host ":" port "/sc2api")))
-  ([client-address]
-   (p/retry {:strategy (p/constant-retry-strategy 2000 10)}
-     (p/retriable
-         {}
-         (let [connection @(http/websocket-client client-address
+  ([host port] (restart-conn host port 20))
+  ([host port timeout]
+   (let [address (str "ws://" host ":" port "/sc2api")]
+     (p/retry {:strategy (p/constant-retry-strategy 2000 timeout)}
+       (p/retriable
+           {}
+         (let [connection @(http/websocket-client address
                                                   {:max-frame-payload 998524288})]
-           (s/on-closed connection (fn [] (println client-address "connection closed")))
-           connection)))))
+           (strm/on-closed connection (fn [] (timbre/debug address "connection closed")))
+           connection))))))
 
 (defn max-version [path]
-  (reduce max (map (fn [f] (Integer/parseInt (subs f 4)))
-                   (.list (-> path clojure.java.io/file)))))
+  (reduce max
+          (map(fn [f] (Integer/parseInt (subs f 4)))
+              (filter
+               #(clojure.string/starts-with? % "Base")
+               (.list (-> path clojure.java.io/file))))))
+
+(defn default-maps-path []
+  (case (System/getProperty "os.name")
+    "Linux" "/home/bb/cljsc2/StarCraftII/Maps"
+    "Mac OS X" "/Applications/StarCraft II/Maps"))
+
+(defn default-sc-path []
+  (case (System/getProperty "os.name")
+    "Linux" (str "/home/bb/cljsc2/StarCraftII/Versions/Base"
+                 (cljsc2.clj.core/max-version "/home/bb/cljsc2/StarCraftII/Versions")
+                 "/SC2_x64")
+    "Mac OS X" (str "/Applications/StarCraft II/Versions/Base"
+                    (cljsc2.clj.core/max-version "/Applications/StarCraft II/Versions/")
+                    "/SC2.app/Contents/MacOS/SC2")
+    (throw (Throwable. "No path set for this OS"))))
 
 (defn start-client
-  ([] (start-client (str "/Applications/StarCraft II/Versions/Base"
-                         (max-version "/Applications/StarCraft II/Versions/")
-                         "/SC2.app/Contents/MacOS/SC2")))
+  ([] (start-client (default-sc-path)))
   ([path] (start-client path "127.0.0.1" 5000))
   ([path host port]
    (sh/proc path
@@ -73,27 +91,33 @@
 
 (defn latest-response [connection]
   (loop [buffer-size (-> connection
-                         s/description
+                         strm/description
                          :source
                          :buffer-size)]
     (if (= buffer-size 0)
       nil
       (if (= buffer-size 1)
-        (s/take! connection)
-        (do (s/take! connection)
+        (strm/take! connection)
+        (do (strm/take! connection)
             (recur (-> connection
-                       s/description
+                       strm/description
                        :source
                        :buffer-size)))))))
 
 (defn response [connection]
   (if (>
        (-> connection
-           s/description
+           strm/description
            :source
            :buffer-size)
        0)
-    (s/take! connection)))
+    (strm/take! connection)))
+
+(defn conn-closed? [connection]
+  (-> connection
+      strm/description
+      :sink
+      :closed?))
 
 (defn response-message [connection]
   (let [res (response connection)]
@@ -122,10 +146,10 @@
 
 (defn send-request-and-get-response-message [connection request]
   (let [req (try @(send-request connection request)
-                 (catch Exception e (println "exception sending request" e)))]
+                 (catch Exception e (timbre/debug "exception sending request" request " with error: " e)))]
     (loop [res (latest-response-message connection)
            depth 0]
-      (when (> depth 10000000) (println "depth > 1000000"))
+      (when (> depth 10000000) (println "depth > 10000000"))
       (if (> depth 10000000)
         (throw (Exception. (str req "tried request > 10000000 times"))))
       (if (identical? res nil)
@@ -148,10 +172,26 @@
     {:actions
      [action]}}))
 
+(defn send-actions-and-get-response [connection actions]
+  (send-request-and-get-response-message
+   connection
+   #:SC2APIProtocol.sc2api$RequestAction
+   {:action #:SC2APIProtocol.sc2api$RequestAction
+    {:actions
+     actions}}))
+
 (defn request-step [connection stepsize]
   (send-request-and-get-response-message
    connection
    #:SC2APIProtocol.sc2api$RequestStep{:step {:count stepsize}}))
+
+(defn quick-save [conn]
+  (send-request-and-get-response-message
+   conn #:SC2APIProtocol.sc2api$RequestQuickSave{:quick-save {}}))
+
+(defn quick-load [conn]
+  (send-request-and-get-response-message
+   conn #:SC2APIProtocol.sc2api$RequestQuickLoad{:quick-load {}}))
 
 (defn load-mineral-game
   ([connection]
@@ -222,6 +262,50 @@
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
          :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
          }
+        :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
+        }}}))))
+
+(defn load-map
+  ([connection] (load-map connection {:map-config/path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}))
+  ([connection {:keys [map-config/path] :as config}]
+   (d/chain
+    (send-request
+     connection
+     #:SC2APIProtocol.sc2api$RequestCreateGame
+     {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
+      {:map #:SC2APIProtocol.sc2api$LocalMap
+       {:local-map
+        {:map-path path}}
+       :player-setup
+       [#:SC2APIProtocol.sc2api$PlayerSetup
+        {:race "Terran" :type "Participant"}
+        #:SC2APIProtocol.sc2api$PlayerSetup
+        {:race "Protoss" :type "Computer"}]}})
+    (send-request
+     connection
+     #:SC2APIProtocol.sc2api$RequestJoinGame
+     {:join-game
+      #:SC2APIProtocol.sc2api$RequestJoinGame
+      {:participation
+       #:SC2APIProtocol.sc2api$RequestJoinGame
+       {:race "Terran"}
+       :options #:SC2APIProtocol.sc2api$InterfaceOptions
+       {:raw true
+        :score true
+        :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
+        :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
+        {:width 24
+         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
+         }
         }}}))))
 
 (defn run-for [n]
@@ -250,12 +334,20 @@
                                use-datalog-observation
                                stepsize
                                run-until-fn
-                               to-markdown]
+                               run-for-steps
+                               to-markdown
+                               additional-listening-fns
+                               run-ended-cb
+                               run-started-cb]
                         :or {collect-actions false
                              collect-observations false
                              run-until-fn (run-for 500)
+                             run-for-steps 500
                              stepsize 1
-                             to-markdown false}}]
+                             to-markdown false
+                             run-started-cb (fn [game-loop])
+                             run-ended-cb (fn [game-loop run-game-loop])
+                             additional-listening-fns []}}]
    (flush-incoming-responses connection)
    (let [run-result
          (let [loops (atom 0)
@@ -264,17 +356,20 @@
                initial-observation (request-observation connection)
                run-until-pred (run-until-fn (get-in initial-observation
                                                     [:observation :observation]))]
+           (run-started-cb (:game-loop (:observation (:observation initial-observation))))
            (loop [req-observation initial-observation
                   observations observations-transient
                   actions actions-transient]
              (let [actual-observation (get-in req-observation
                                               [:observation :observation])
                    observation actual-observation
-                   ended? (or (identical? (:status req-observation) :ended)
-                              (run-until-pred observation @loops))
+                   run-ended? (run-until-pred observation @loops)
                    step-actions (step-fn observation connection)]
                (swap! loops inc)
-               (if (and (not ended?)
+               (doall (map (fn [listener] (listener observation step-actions))
+                           additional-listening-fns))
+               (if (and (not (or run-ended?
+                                 (identical? (:status req-observation) :ended)))
                         step-actions)
                  (do
                    (send-request-and-get-response-message
@@ -293,8 +388,14 @@
                               (conj! observations observation)
                               observations)
                             (if collect-actions
-                              (conj! actions step-actions)))))
-                 [observations actions]))))]
+                              (conj! actions step-actions)
+                              actions))))
+                 (do (run-ended-cb (:game-loop actual-observation ) @loops)
+                     [observations actions {:game-ended? (identical? (:status req-observation) :ended)
+                                            :run-ended? run-ended?
+                                            :game-loop (:game-loop actual-observation)
+                                            :ran-for-steps (* stepsize @loops)
+                                            :run-for-steps run-for-steps}])))))]
      (if to-markdown
        (mp4-file-path->markdown-html (run-result->mp4-file-path run-result (get-port connection)))
        run-result))))

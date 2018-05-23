@@ -10,4 +10,5 @@
 
 "add mining scv to second expand"
 "attack with army on left"
+
 (defn add-to-env [])

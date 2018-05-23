@@ -404,62 +404,92 @@
 (declare ugly-memo-make-protobuf)
 
 (defn ugly-make-protobuf
-   "Function to create protobufs from any namespaced object, uses the generated specs of the specs atom. Not nice code, but functional and will revisit later."
-   ([spec-obj]
-    (ugly-memo-make-protobuf (ffirst spec-obj) spec-obj false))
-   ([spec-key spec-obj is-one-of]
-    (let [b (if is-one-of
-              (try (builder-for-spec-key-with-attribute spec-key)
-                   (catch Exception e (create-builder spec-key)))
-              (create-builder spec-key))]
-      (cond
-        (map? spec-obj)
-        (doall (map (fn [[child-spec-key spec-val]]
-                      (let [setters (.? b (str "set"
-                                                (class-camel-case-name child-spec-key)))
-                            has-setter (not (empty? setters))]
-                        (cond
-                          (and (map? spec-val)
-                               (empty? spec-val))
-                          nil
-                          (and (not (map? spec-val))
-                               (coll? spec-val))
-                          (doall (map (fn [child-spec-obj]
-                                        (let [built-val (cond
-                                                          (and (not (string? child-spec-obj))
-                                                               (map? child-spec-obj)
-                                                               (empty? child-spec-obj))
-                                                          (let [kw (resolve-existing-spec-kw
-                                                                    (find-spec child-spec-key)
-                                                                    specs namespaces)
-                                                                found-kw (resolve-without-class kw)]
-                                                            (.build
-                                                             (clojure.lang.Reflector/invokeStaticMethod
-                                                              found-kw
-                                                              "newBuilder"
-                                                              (to-array []))))
-                                                          (not (coll? child-spec-obj)) child-spec-obj
-                                                          (ffirst child-spec-obj) (ugly-memo-make-protobuf child-spec-obj)
-                                                          :else :no-resp)]
-                                          (str-invoke-method "add" b child-spec-key built-val)))
-                                      spec-val))
-                          (and (map? spec-val) (not has-setter))
-                          (doall (map (fn [[map-spec-key map-spec-val]]
-                                        (let [set-kw (if has-setter
-                                                       spec-key
-                                                       map-spec-key)]
-                                          (if (map? map-spec-val)
-                                            (str-invoke-method "set" b set-kw
-                                                               (try (ugly-memo-make-protobuf (ffirst map-spec-val) map-spec-val (not has-setter))
-                                                                    (catch Exception e (ugly-memo-make-protobuf map-spec-key map-spec-val (not has-setter)))))
-                                            (str-invoke-method "set" b set-kw map-spec-val)
-                                            )))
-                                      spec-val))
-                          :else (str-invoke-method "set" b child-spec-key (if (map? spec-val)
-                                                                            (ugly-memo-make-protobuf spec-val)
-                                                                            spec-val)))))
-                    spec-obj))
-        :else (str-invoke-method "set" b spec-key spec-obj))
-      (.build b))))
+     "Function to create protobufs from any namespaced object, uses the generated specs of the specs atom. Not nice code, but functional and will revisit later."
+     ([spec-obj]
+      (ugly-make-protobuf (ffirst spec-obj) spec-obj false))
+     ([spec-key spec-obj is-one-of]
+      (let [b (if (and is-one-of
+                       (not (or (identical? spec-key :SC2APIProtocol.spatial$ActionSpatialUnitSelectionPoint/selection-screen-coord)
+                                (identical? spec-key :SC2APIProtocol.raw$ActionRawCameraMove/center-world-space)
+                                (identical? spec-key :SC2APIProtocol.spatial$ActionSpatialCameraMove/center-minimap)))) ;;:(
+                (try (builder-for-spec-key-with-attribute spec-key)
+                     (catch Exception e (create-builder spec-key)))
+                (create-builder spec-key))]
+        (cond
+          (map? spec-obj)
+          (doall (map (fn [[child-spec-key spec-val]]
+                        (let [setters (.? b (str "set"
+                                                 (class-camel-case-name child-spec-key)))
+                              has-setter (not (empty? setters))]
+                          (cond
+                            (and (map? spec-val)
+                                 (empty? spec-val))
+                            nil
+                            (and (not (map? spec-val))
+                                 (coll? spec-val))
+                            (doall (map (fn [child-spec-obj]
+                                          (let [built-val (cond
+                                                            (and (not (string? child-spec-obj))
+                                                                 (map? child-spec-obj)
+                                                                 (empty? child-spec-obj))
+                                                            (let [kw (resolve-existing-spec-kw
+                                                                      (find-spec child-spec-key)
+                                                                      specs namespaces)
+                                                                  found-kw (resolve-without-class kw)]
+                                                              (.build
+                                                               (clojure.lang.Reflector/invokeStaticMethod
+                                                                found-kw
+                                                                "newBuilder"
+                                                                (to-array []))))
+                                                            (not (coll? child-spec-obj)) child-spec-obj
+                                                            (ffirst child-spec-obj) (ugly-memo-make-protobuf child-spec-obj)
+                                                            :else :no-resp)]
+                                            (str-invoke-method "add" b child-spec-key built-val)))
+                                        spec-val))
+                            (and (map? spec-val) (not has-setter))
+                            (doall (map (fn [[map-spec-key map-spec-val]]
+                                          (let [set-kw (if has-setter
+                                                         spec-key
+                                                         map-spec-key)]
+                                            (if (map? map-spec-val)
+                                              (str-invoke-method "set" b set-kw
+                                                                 (try (ugly-memo-make-protobuf (ffirst map-spec-val) map-spec-val (not has-setter))
+                                                                      (catch Exception e (ugly-memo-make-protobuf map-spec-key map-spec-val (not has-setter)))))
+                                              (str-invoke-method "set" b set-kw map-spec-val)
+                                              )))
+                                        spec-val))
+                            :else (str-invoke-method "set" b child-spec-key (if (map? spec-val)
+                                                                              (ugly-memo-make-protobuf spec-val)
+                                                                              spec-val)))))
+                      spec-obj))
+          :else (str-invoke-method "set" b spec-key spec-obj))
+        (.build b))))
+
+#_(ugly-memo-make-protobuf #:SC2APIProtocol.sc2api$Action{:action-render #:SC2APIProtocol.spatial$ActionSpatial{:action #:SC2APIProtocol.spatial$ActionSpatial{:camera-move #:SC2APIProtocol.spatial$ActionSpatialCameraMove{:center-minimap #:SC2APIProtocol.common$PointI{:x 20, :y 20}}}}})
+
 
 (def ugly-memo-make-protobuf (memoize ugly-make-protobuf))
+
+
+(comment fix this properly
+         (.? (create-builder (ffirst #:SC2APIProtocol.raw$ActionRaw
+                                     {:action #:SC2APIProtocol.raw$ActionRaw
+                                      {:camera-move #:SC2APIProtocol.raw$ActionRawCameraMove
+                                       {:center-world-space #:SC2APIProtocol.common$Point{:x 70 :y 20}}}})))
+         (.setCameraMove (second one)
+                         (ugly-make-protobuf #:SC2APIProtocol.raw$ActionRaw
+                                             {:camera-move #:SC2APIProtocol.raw$ActionRawCameraMove
+                                              {:center-world-space #:SC2APIProtocol.common$Point{:x 70 :y 20}}}))
+
+         (ugly-make-protobuf #:SC2APIProtocol.raw$ActionRaw
+                             {:action #:SC2APIProtocol.raw$ActionRaw
+                              {:camera-move #:SC2APIProtocol.raw$ActionRawCameraMove
+                               {:center-world-space #:SC2APIProtocol.common$Point{:x 70 :y 20}}}})
+
+         (ugly-make-protobuf #:SC2APIProtocol.raw$ActionRaw
+                             {:action #:SC2APIProtocol.raw$ActionRaw
+                              {:unit-command #:SC2APIProtocol.raw$ActionRawUnitCommand
+                               {:target #:SC2APIProtocol.raw$ActionRawUnitCommand
+                                {:target-world-space-pos #:SC2APIProtocol.common$Point2D
+                                 {:x 0 :y 0}}
+                                :ability-id 23}}}))

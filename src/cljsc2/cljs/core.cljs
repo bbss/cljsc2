@@ -2,8 +2,7 @@
   (:require [cognitect.transit :as transit]
             [cljsc2.cljs.colors :refer [discrete-color-palette
                                         hot-palette
-                                        player-absolute-colors]]
-            cljsjs.d3))
+                                        player-absolute-colors]]))
 
 (enable-console-print!)
 
@@ -11,7 +10,6 @@
   (transit/reader
    :json
    {:handlers {"literal-byte-string" (fn [it] it)}}))
-
 
 (def feature-layer-types
   [:creep
@@ -79,25 +77,10 @@
             (.domain #js [0 1])
             (.range #js ["rgba(0,0,0,0)" "purple"]))})
 
-(defonce app-state (atom {}))
-
-(defn create-canvas [feature-layer-name width height]
-  (let [canvas (js/document.createElement "canvas")
-        div (js/document.createElement "div")
-        feature-layer-name-div (js/document.createElement "div")]
-    (set! (.-innerHTML feature-layer-name-div) (str feature-layer-name))
-    (set! (.-height canvas) height)
-    (set! (.-width canvas) width)
-    (set! (.-id canvas) (str feature-layer-name "-" width "-" height))
-    (.appendChild (js/document.querySelector "#app") div)
-    (.appendChild div feature-layer-name-div)
-    (.appendChild div canvas)
-    canvas))
 
 (declare msg)
 
 (defn to-colored-clamped-arr [from-arr to-arr-size scale]
-  #_(println (.-length from-arr) to-arr-size)
   (let [to-arr (js/Uint8ClampedArray. to-arr-size)]
     (loop [i 0
            d 0]
@@ -112,105 +95,42 @@
           (recur (inc i) (+ d 4))
           to-arr)))))
 
-(declare to-canvas)
+(defn to-rgb-clamped-arr [from-arr to-arr-size]
+  (let [to-arr (js/Uint8ClampedArray. to-arr-size)]
+    (loop [i 0
+           d 0]
+      (let []
+        (aset to-arr d (aget from-arr i))
+        (aset to-arr (+ d 1) (aget from-arr (inc i)))
+        (aset to-arr (+ d 2) (aget from-arr (inc (inc i))))
+        (aset to-arr (+ d 3) 255)
+        (if (< i (inc (.-length from-arr)))
+          (recur (+ i 3) (+ d 4))
+          to-arr)))))
 
-#_(do (do (reset! app-state {})
-        (set! (.-innerHTML (js/document.querySelector "#app")) ""))
-    ((defn to-canvas [state feature-layer-name {:keys [data bits-per-pixel size]}
-                      scale to-resolution]
-       (swap! state update-in [feature-layer-name to-resolution]
-              (fn [canvas]
-                (let [canvas (if canvas
-                               canvas
-                               (create-canvas feature-layer-name
-                                              (* 4 (:x size))
-                                              (* 4 (:y size))))
-                      data (case bits-per-pixel
-                             1 (.split (js/uint8toBinaryString data) "")
-                             8 data
-                             32 (js/str2ab32 (js/uint8toBinaryString data))
-                             [])
-                      arr-size (* 4 (:x size) (:y size))
-                      image-width (:x size)
-                      image-height (:y size)]
-                  (.then
-                   (js/createImageBitmap
-                    (js/ImageData.
-                     (to-colored-clamped-arr
-                      data
-                      arr-size
-                      scale)
-                     image-width image-height))
-                   (fn [img]
-                     (.putImageData (.getContext canvas "2d")
-                                    (js/ImageData.
-                                     (to-colored-clamped-arr
-                                      data
-                                      arr-size
-                                      scale)
-                                     image-width image-height) 0 0)))
-                  canvas))))
+(def uint8->binary js/uint8toBinaryString)
 
-     app-state
-     :unit-type
-     (->> msg
-          :renders
-          :unit-type)
-     (get feature-layer-draw-descriptions :unit-type)
-     [336 336]))
+(def binary->ab32 js/str2ab32)
 
-(defn to-canvas [state feature-layer-name {:keys [data bits-per-pixel size]}
-                      scale to-resolution]
-       (swap! state update-in [feature-layer-name to-resolution]
-              (fn [canvas]
-                (let [canvas (if canvas
-                               canvas
-                               (create-canvas feature-layer-name
-                                              (first to-resolution)
-                                              (second to-resolution)))
-                      data (case bits-per-pixel
-                             1 (.split (js/uint8toBinaryString data) "")
-                             8 data
-                             32 (js/str2ab32 (js/uint8toBinaryString data))
-                             [])
-                      arr-size (* 4 (:x size) (:y size))
-                      image-width (:x size)
-                      image-height (:y size)
-                      ctx (.getContext canvas "2d")]
-                  (set! (.-fillStyle ctx) "white")
-                  (.fillRect ctx 0 0 (first to-resolution) (second to-resolution))
-                  (.then
-                   (js/createImageBitmap
-                    (js/ImageData.
-                     (to-colored-clamped-arr
-                      data
-                      arr-size
-                      scale)
-                     image-width image-height))
-                   (fn [img-data]
-                     (.drawImage ctx
-                                 img-data 0 0 (first to-resolution) (second to-resolution))))
-                  canvas))))
-
-(defn handle-incoming-message [e]
-  (let [message (.-data e)]
-    (def msg (transit/read reader message))
-    (doall
-     (map
-      (fn [feature-layer-name]
-        (when (get (:renders msg) feature-layer-name)
-          (let [{:keys [data bits-per-pixel size]} (get (:renders msg) feature-layer-name)]
-            (to-canvas
-             app-state
-             feature-layer-name
-             (get (:renders msg) feature-layer-name)
-             (get feature-layer-draw-descriptions feature-layer-name)
-             [336 336])
-            )))
-      feature-layer-types))))
-
-(defonce es
-  (doto (js/EventSource. (str "/sub"))
-    (.addEventListener
-     "message"
-     handle-incoming-message)))
+(defn render-canvas [canvas feature-layer-name {:keys [data bits-per-pixel size]}
+                     scale to-resolution is-rgb]
+  (let [arr-size (* 4 (:x size) (:y size))
+        image-width (:x size)
+        image-height (:y size)
+        ctx (.getContext canvas "2d")
+        data (if is-rgb
+               (to-rgb-clamped-arr data arr-size)
+               (to-colored-clamped-arr
+                data
+                arr-size
+                scale))
+        image-p (js/createImageBitmap
+                 (js/ImageData.
+                  data
+                  image-width image-height))
+        render-cb (fn [img-data]
+                    (.drawImage ctx
+                                img-data 0 0 (:x to-resolution) (:y to-resolution)))]
+    (set! (.-fillStyle ctx) "white")
+    (.fillRect ctx 0 0 (:x to-resolution) (:y to-resolution))
+    [image-p render-cb]))
