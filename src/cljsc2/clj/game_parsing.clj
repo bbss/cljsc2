@@ -453,16 +453,16 @@
                 :positions available-building-positions})))
 
 (defn positions-near-unit-type [type latest-knowledge]
-  (let [[near-x near-y] (ds/q '[:find [?x ?y]
-                                :in $ ?type
-                                :where
-                                [?id :unit/unit-type ?type-id]
-                                [(+ 990000 ?type-id) ?type-e-id]
-                                [?type-e-id :unit-type/name ?type]
-                                [?id :unit/x ?x]
-                                [?id :unit/y ?y]]
-                              latest-knowledge
-                              type)
+  (let [[near-x near-y] (or (ds/q '[:find [?x ?y]
+                                   :in $ ?type
+                                   :where
+                                   [?id :unit/unit-type ?type-id]
+                                   [(+ 990000 ?type-id) ?type-e-id]
+                                   [?type-e-id :unit-type/name ?type]
+                                   [?id :unit/x ?x]
+                                   [?id :unit/y ?y]]
+                                 latest-knowledge
+                                 type) [10 10])
         positions (positions-around near-x near-y 15)]
     positions))
 
