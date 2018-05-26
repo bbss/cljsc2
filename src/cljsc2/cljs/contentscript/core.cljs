@@ -1,6 +1,8 @@
-(ns cljsc2.cljs.content-script.core
+(ns cljsc2.cljs.contentscript.core
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [react :as react]
+            ["d3" :as d3]
+            ["./imageutil.js" :as iutil]
             [clojure.core.async :refer [<! >!]]
             [cljsc2.cljs.core :refer [render-canvas feature-layer-draw-descriptions]]
             [cljsc2.cljs.actions :refer [ui-available-actions]]
@@ -35,9 +37,9 @@
 
 (set! js/window.appstate (fn [] (prim/app-state (:reconciler @app))))
 
-(def uint8->binary js/uint8toBinaryString)
+(def uint8->binary iutil/uint8toBinaryString)
 
-(def binary->ab32 js/str2ab32)
+(def binary->ab32 iutil/str2ab32)
 
 (defn map->nsmap
   [m n]
@@ -57,7 +59,7 @@
                  feature-layer
                  (let [{:keys [data bits-per-pixel] :as fl} feature-layer]
                            (assoc fl :data (case bits-per-pixel
-                                             1 (.split (js/uint8toBinaryString data) "")
+                                             1 (.split uint8->binary "")
                                              8 data
                                              32 (binary->ab32 (uint8->binary data))
                                              []))))
@@ -422,7 +424,7 @@
    (ui-camera-move-arrows this port x y)))
 
 (defn ui-timeline [runs run-size step-size]
-  (let [scale (js/d3.scaleLinear)
+  (let [scale (d3.scaleLinear)
         total-runs-size (reduce (fn [total {:keys [:run/started-at :run/ended-at]}]
                                   (+ total (- (or ended-at 0) (or started-at 0))))
                                 0
@@ -471,7 +473,9 @@
         :request #:SC2APIProtocol.sc2api$RequestQuit{:quit {}}
         })]))
 
-(defn clear-jupyter-events [i] (when i (Jupyter.keyboard_manager.register_events i)))
+(defn clear-jupyter-events [i]
+  (when (and js/window.Jupyter i)
+    (js/window.Jupyter.keyboard_manager.register_events i)))
 
 (defn render-field [component field renderer]
   (let [form         (prim/props component)
@@ -495,7 +499,8 @@
   ([component field field-label validation-string input-element options]
    (render-field component field
                  (fn [{:keys [invalid? id dirty?]}]
-                   (js/Jupyter.keyboard_manager.register_events input-element)
+                   (when js/window.Jupyter
+                     (js/window.Jupyter.keyboard_manager.register_events input-element))
                    (bs/labeled-input (merge {:error           (when invalid? validation-string)
                                              :id              id
                                              :warning         (when dirty? "(unsaved)")
@@ -529,6 +534,7 @@
                                   (fn [e]
                                     (m/set-string! component field :event e)))}
                      options) field-label)))))
+(do js/window.thing)
 
 (defsc RunConfig [this {:keys [db/id
                                run-config/step-size
@@ -593,6 +599,7 @@
    (ui-timeline runs
                 run-size
                 step-size)))
+
 
 (defsc Run [this {:keys [db/id :run/observations]}]
   {:query [{:run/observations (prim/get-query Observation)}
@@ -929,7 +936,7 @@
   (reset! app (fc/new-fulcro-client
                :networking {:remote
                             (fw/make-websocket-networking
-                             {:host (case :remote-staging
+                             {:host (case :local-staging
                                           :local "0.0.0.0:3446"
                                           :local-staging "192.168.1.94:3446"
                                           :remote-staging "cljsc.org:3446"
@@ -940,32 +947,39 @@
                                                               datascript.transit/read-handlers)}
                               })}
                :started-callback (fn [app]
-                                   (load app ::model/processes Process
-                                         {:target [:root/processes]
-                                          :marker false})
-                                   (load app ::model/process-starter ProcessStarter
-                                         {:target [:root/process-starter]
-                                          :marker false})
-                                   (load app :root/starcraft-static-data Root
-                                         {:marker false
-                                          :post-mutation `make-conn})))))
+                                   (go-loop [msg (:chsk @(:channel-socket (:remote (:networking app))))]
+                                     (do (load app ::model/processes Process
+                                               {:target [:root/processes]
+                                                :marker false})
+                                         (load app ::model/process-starter ProcessStarter
+                                               {:target [:root/process-starter]
+                                                :marker false})
+                                         (load app :root/starcraft-static-data Root
+                                               {:marker false
+                                                :post-mutation `make-conn})))))))
 
-(defn ^:export init! []
-  (set! js/window.cljsc_execute
-        (fn [cell]
-          (clj->js {:cell-id (.-cell_id cell)
-                    :run-for 1
-                    :step-size 1})))
+(defn init! []
+  (when-let [el (aget (.querySelectorAll js/document "#sc-viewer") 0)]
+    (.remove el))
   (reset-app!)
   (let [el (js/document.createElement "div")
         _ (oset! el "id" "sc-viewer")]  (.prepend (gdom/getElement "notebook") el))
   (mount))
 
-(defn on-js-reload []
+(defn ^:dev/after-load on-js-reload []
+  (when-let [el (aget (.querySelectorAll js/document "#sc-viewer") 0)]
+    (.remove el))
+  (let [el (js/document.createElement "div")
+        _ (oset! el "id" "sc-viewer")]  (.prepend (gdom/getElement "notebook") el))
   (go-loop [stopped (<! (:ch-recv @(:channel-socket (:remote (:networking @app)))))]
-    (js/setTimeout (fn []
-                     (reset-app!)
-                     (mount))
-                   1000))
+    (reset-app!)
+    (mount))
   (sente/chsk-disconnect!
-   (:chsk @(:channel-socket (:remote (:networking @app))))))
+   (:chsk @(:channel-socket (:remote (:networking @app)))))
+  )
+;;in notebook page during devtime.
+;; <script type="text/javascript">
+;; setInterval(function () {
+;;                          [].forEach.call(document.querySelectorAll('.form-control'), i => Jupyter.keyboard_manager.register_events(i))
+;;                          }, 1000)
+;; </script>

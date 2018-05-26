@@ -25,11 +25,9 @@
                  [me.raynes/conch "0.8.0"]
                  [com.grammarly/perseverance "0.1.2"]
                  [com.cognitect/transit-cljs "0.8.243"]
-                 [cljs-ajax "0.7.2"]
                  [manifold "0.1.7-alpha5"]
                  [byte-streams "0.2.4-alpha3"]
                  [cljsjs/d3 "4.12.0-0"]
-                 [thinktopic/cortex "0.9.22"]
                  [com.taoensso/nippy "2.14.0-alpha1"]
                  [com.taoensso/sente "1.12.0"]
                  [environ "1.1.0"]
@@ -56,38 +54,8 @@
   :jvm-opts ["--add-modules" "java.xml.bind"] ;;for java9
 
   :cljsbuild {:builds
-              [#_{:id "dev"
+              [{:id "dev"
                 :source-paths ["src/cljsc2/cljs"]
-
-                ;; The presence of a :figwheel configuration here
-                ;; will cause figwheel to inject the figwheel client
-                ;; into your build
-
-                :figwheel {:on-jsload "cljsc2.cljs.content-script.core/on-js-reload"}
-                :compiler {:main cljsc2.cljs.content-script
-                           :optimizations :none
-                           :asset-path "compiled/"
-                           :output-to "resources/unpacked/compiled/content-script.js"
-                           :output-dir "resources/unpacked/compiled/"
-                           :source-map-timestamp true
-                           ;; To console.log CLJS data-structures make sure you enable devtools in Chrome
-                           ;; https://github.com/binaryage/cljs-devtools
-                                        ; ctrl-f is the default keystroke
-                           :preloads [devtools.preload]}}
-               {:id "dev"
-                :source-paths ["src/cljsc2/cljs"]
-
-                ;; The presence of a :figwheel configuration here
-                ;; will cause figwheel to inject the figwheel client
-                ;; into your build
-                :figwheel {:on-jsload "cljsc2.cljs.content-script.core/on-js-reload"
-                           ;; :open-urls will pop open your application
-                           ;; in the default browser once Figwheel has
-                           ;; started and compiled your application.
-                           ;; Comment this out once it no longer serves you.
-                           ;; :open-urls ["http://localhost:3449/index.html"]
-                           }
-
                 :compiler {:main cljsc2.cljs.mount
                            :asset-path "/static/notebook/js/compiled/out"
                            :output-to "/usr/local/opt/python/Frameworks/Python.framework/Versions/Current/lib/python2.7/site-packages/notebook/static/notebook/js/compiled/cljsc2.js"

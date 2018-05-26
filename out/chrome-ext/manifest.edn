@@ -1,0 +1,26 @@
+{:name "Development time chrome extension"
+ :version "1.0"
+ :description "Build an Extension!"
+ :manifest-version 2
+
+ :shadow/outputs
+ {:inject
+  {:output-type :chrome/single-file
+   :init-fn cljsc2.cljs.contentscript.core/init!}
+
+  :content-script
+  {:init-fn cljsc2.cljs.contentscript.core/init!
+   :chrome/options {:matches ["http://192.168.1.94:*/*"]
+                    :run-at "document_idle"
+                    }}}
+
+ :content-security-policy
+ ["default-src 'self';"
+  ;; FIXME: unsafe-eval should be injected for dev, user shouldn't have to write this
+  "script-src 'self' 'unsafe-eval' http://localhost:9630;"
+  "connect-src * data: blob: filesystem:;"
+  "style-src 'self' data: chrome-extension-resource: 'unsafe-inline';"
+  "img-src 'self' data: chrome-extension-resource:;"
+  "frame-src 'self' data: chrome-extension-resource:;"
+  "font-src 'self' data: chrome-extension-resource:;"
+  "media-src * data: blob: filesystem:;"]}

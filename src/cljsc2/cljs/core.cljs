@@ -1,5 +1,8 @@
 (ns cljsc2.cljs.core
-  (:require [cognitect.transit :as transit]
+  (:require cljsjs.d3
+            ["d3" :as d3]
+            ["./contentscript/imageutil.js" :as iutil]
+            [cognitect.transit :as transit]
             [cljsc2.cljs.colors :refer [discrete-color-palette
                                         hot-palette
                                         player-absolute-colors]]))
@@ -108,9 +111,9 @@
           (recur (+ i 3) (+ d 4))
           to-arr)))))
 
-(def uint8->binary js/uint8toBinaryString)
+(def uint8->binary iutil/uint8toBinaryString)
 
-(def binary->ab32 js/str2ab32)
+(def binary->ab32 iutil/str2ab32)
 
 (defn render-canvas [canvas feature-layer-name {:keys [data bits-per-pixel size]}
                      scale to-resolution is-rgb]
