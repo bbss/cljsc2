@@ -198,7 +198,8 @@
                                       (or (initialize-active-plans (:new-plans @planner) latest-knowledge) []))
                 :env (-> env
                          (dissoc :knowledge)
-                         (dissoc :actions))}))
+                         (dissoc :actions)
+                         (dissoc :available-building-positions))}))
             (vec (set (:actions env)))))))))
 
 (defn finished? [planner]
