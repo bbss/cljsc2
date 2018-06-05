@@ -41,6 +41,8 @@
    )
   (:import [java.io ByteArrayInputStream ByteArrayOutputStream]))
 
+(timbre/merge-config! {:ns-blacklist ["clojupyter.misc.messages"]} )
+
 #_(defonce notebook
   (let [rt (Runtime/getRuntime)
         proc (.exec rt (str "jupyter" " notebook"))]
@@ -275,30 +277,31 @@
                                           run-ended? game-ended?]}]
   (try
     (let [run (add-run server-db
-                         port)
-            {:keys [run-config/step-size
-                    run-config/restart-on-episode-end
-                    run-config/run-size] :as run-config} (get-in @server-db (:run/run-config run))]
-        (let [run-result
-              (cljsc2.clj.core/do-sc2
-               connection
-               agent-fn
-               {:stepsize step-size
-                :run-until-fn (cljsc2.clj.core/run-for (or run-for-steps run-size))
-                :run-for-steps run-for-steps
-                :additional-listening-fns [(fn [observation connection]
-                                             (add-observation server-db port (:db/id run) observation))]
-                :run-started-cb (run-started server-db (:db/id run) port)
-                :run-ended-cb (run-ended server-db (:db/id run) port)})
-              {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?] :as run-info} (nth run-result 2)]
-          (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
-          (if restart-on-episode-end
-            (if (and game-ended? (not run-ended?))
-              (concat [run-result] (run-sc agent-fn run-end-fn
-                                           (assoc run-info :run-for-steps
-                                                  (- run-for-steps ran-for-steps))))
-              [run-result])
-            [run-result])))
+                       port)
+          {:keys [run-config/step-size
+                  run-config/restart-on-episode-end
+                  run-config/run-size] :as run-config} (get-in @server-db (:run/run-config run))]
+      (let [run-result
+            (cljsc2.clj.core/do-sc2
+             connection
+             agent-fn
+             {:stepsize step-size
+              :run-until-fn (cljsc2.clj.core/run-for (or run-for-steps run-size))
+              :run-for-steps run-for-steps
+              :additional-listening-fns [(fn [observation connection]
+                                           (add-observation server-db port (:db/id run) observation))]
+              :run-started-cb (run-started server-db (:db/id run) port)
+              :run-ended-cb (run-ended server-db (:db/id run) port)})
+            {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?] :as run-info} (nth run-result 2)]
+        (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
+        (if restart-on-episode-end
+          (if (and game-ended? (not run-ended?))
+            (concat [run-result] (do (make-ready server-db connection)
+                                     (run-sc agent-fn run-end-fn
+                                             (assoc run-info :run-for-steps
+                                                    (- (or run-for-steps run-size) ran-for-steps)))))
+            [run-result])
+          [run-result])))
     (catch Exception e (timbre/error e))))
 
 (defn msg->code [message _]
@@ -465,7 +468,7 @@
                         (get-in @server-db [:run-config/by-id id])
                         (get-in @server-db [:run-config/by-id id]))))
 
-(defmutation cljsc2.cljs.content-script.core/send-request
+(defmutation cljsc2.cljs.contentscript.core/send-request
   [{:keys [port request]}]
   (action [env]
           (let [conn (get-conn server-db port)
@@ -481,7 +484,7 @@
                              (:observation (:observation (cljsc2.clj.core/request-observation conn))))
             {})))
 
-(defmutation cljsc2.cljs.content-script.core/make-savepoint
+(defmutation cljsc2.cljs.contentscript.core/make-savepoint
   [{:keys [game-loop port]}]
   (action [env]
           (let [_ (timbre/debug port game-loop)
@@ -494,7 +497,7 @@
                                    game-loop))))
             {})))
 
-(defmutation cljsc2.cljs.content-script.core/load-savepoint
+(defmutation cljsc2.cljs.contentscript.core/load-savepoint
   [{:keys [port]}]
   (action [env]
           (let [conn (get-conn server-db port)
@@ -505,7 +508,7 @@
                              (:observation (:observation (cljsc2.clj.core/request-observation conn))))
             {})))
 
-(defmutation cljsc2.cljs.content-script.core/send-action
+(defmutation cljsc2.cljs.contentscript.core/send-action
   [{:keys [action port]}]
   (action [env]
           (let [_ (timbre/debug port action)
@@ -519,12 +522,12 @@
                   (add-observation server-db port run-id
                                    (:observation (:observation (cljsc2.clj.core/request-observation conn)))))))))
 
-(defmutation cljsc2.cljs.content-script.core/update-map [{:keys [id path]}]
+(defmutation cljsc2.cljs.contentscript.core/update-map [{:keys [id path]}]
   (action [env]
           (do (swap! server-db assoc-in [:map-config/by-id id :map-config/path] path)
               {})))
 
-(defmutation cljsc2.cljs.content-script.core/submit-run-config [params]
+(defmutation cljsc2.cljs.contentscript.core/submit-run-config [params]
   (action [env]
           (do
             (swap! server-db

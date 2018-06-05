@@ -25,17 +25,18 @@
                            (for [fun (vals in)]
                              (fun env)))))
 
-(defn remove-occupied-casters [{:keys [actions ability-order-already-issued] :as env} _]
+(defn remove-occupied-casters [{:keys [actions ability-order-already-issued non-mining-scvs] :as env} _]
   (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
                                                        :SC2APIProtocol.raw$ActionRaw/action
                                                        :SC2APIProtocol.raw$ActionRaw/unit-command
                                                        :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
 
-                                           actions)))]
+                                            actions)))]
     (update env :available-casters (fn [casters]
                                      (clojure.set/difference casters
                                                              occupied-casters
-                                                             ability-order-already-issued)))))
+                                                             ability-order-already-issued
+                                                             non-mining-scvs)))))
 
 (defn update-build-actions [{:keys [ability-id connection do-times available-casters
                                     available-building-positions footprint-radius
@@ -161,6 +162,7 @@
                                                           :knowledge latest-knowledge}
                                                          %))
                       (:env @planner))]
+          (def knowledge latest-knowledge)
           (let [active-plans (:active-plans @planner)
                 env (if (seq? active-plans)
                       (second (->> active-plans
@@ -196,7 +198,8 @@
                                       (or (initialize-active-plans (:new-plans @planner) latest-knowledge) []))
                 :env (-> env
                          (dissoc :knowledge)
-                         (dissoc :actions))}))
+                         (dissoc :actions)
+                         (dissoc :available-building-positions))}))
             (vec (set (:actions env)))))))))
 
 (defn finished? [planner]
@@ -283,46 +286,77 @@
                                  remove-after-goal-attained
                                  whenever-goals-succeed]
                           :or {until-count 1 whenever-goals-succeed (fn [_ _])}}]
-  [{:action-spec [:unit-type unit-type
-                  :ability-id-query {:in '{?ability-name :unit-type}
-                                     :query '[[?build-me :unit-type/name ?ability-name]
-                                              [?build-me :unit-type/ability-id ?ability-id]]}
-                  :is-building-query {:in '{?ability-id :ability-id}
-                                      :query '[[?ab-e-id :ability-type/is-building ?is-building]
-                                               [?ab-e-id :ability-type/id ?ability-id]]}
-                  :is-refinery-query (fn [{:keys [ability-id] :as env} _]
-                                       (assoc env :is-refinery (= ability-id 320)))
-                  :footprint-radius-query {:in '{?ability-id :ability-id}
-                                           :query '[[?a :ability-type/id ?ability-id]
-                                                    [?a :ability-type/footprint-radius ?footprint-radius]]}
-                  :available-casters-query {:in '{?ability-id :ability-id}
-                                            :query '[[?unit-tag :unit/unit-type ?built-unit-type]
-                                                     [?t :unit-type/unit-id ?built-unit-type]
-                                                     [?t :unit-type/name ?name]
-                                                     [(+ 880000 ?ability-id) ?ab-e-id]
-                                                     [?t :unit-type/abilities ?ab-e-id]]
-                                            :find ['[?unit-tag ...]]
-                                            :transform-result set}
-                  :ability-order-already-issued-query {:in '{?ability-id :ability-id}
-                                                       :query '[[?unit-tag :unit/orders ?order]
-                                                                [?unit-tag :unit/unit-type ?type-id]
-                                                                [?order :order/ability-id ?ability-id]]
-                                                       :find '[?unit-tag ?order]
-                                                       :transform-result (fn [result] (set (map first result)))}
-                  :available-casters remove-occupied-casters
-                  :food-available-query {:query
-                                         '[[?l :player-common/food-used ?food-used]
-                                           [?l :player-common/food-cap ?food-cap]
-                                           [(- ?food-cap ?food-used) ?food-available]]
-                                         :from ['[?food-available]]}
-                  :do-times (if (= unit-type "SupplyDepot")
-                              (fn [{:keys [food-available ability-order-already-issued] :as env} _]
-                                (assoc env :do-times (- (inc (int (/ (- 13 food-available) 10)))
-                                                            (count ability-order-already-issued))))
-                              (fn [{:keys [is-building ability-order-already-issued] :as env} _]
-                                (assoc env :do-times (- (if is-building 1 1)
-                                                        (count ability-order-already-issued)))))
-                  :actions update-build-actions]
+  [{:action-spec
+    [:unit-type unit-type
+     :current-count (fn [env _]
+                      (assoc env :current-count
+                             (or (get-unit-type-count (:knowledge env)
+                                                      unit-type)
+                                 0)))
+     :non-mining-scvs (fn [{:keys [knowledge] :as env} _]
+                        (let [mining-scvs (clojure.set/union
+                                           (set (ds/q '[:find [?scv ...]
+                                                        :in $ %
+                                                        :where
+                                                        (units-of-type "SCV" ?scv)
+                                                        (currently-doing ?scv 296)]
+                                                      knowledge
+                                                      (concat units-of-type-rule
+                                                              currently-doing-rule)))
+                                           (set (ds/q '[:find [?scv ...]
+                                                        :in $ %
+                                                        :where
+                                                        (units-of-type "SCV" ?scv)
+                                                        (currently-doing ?scv 295)]
+                                                      knowledge
+                                                      (concat units-of-type-rule
+                                                              currently-doing-rule))))
+                              all-scvs (set (ds/q '[:find [?scv ...]
+                                                    :in $ %
+                                                    :where
+                                                    (units-of-type "SCV" ?scv)]
+                                                  knowledge
+                                                  units-of-type-rule))]
+                          (assoc env :non-mining-scvs (clojure.set/difference all-scvs mining-scvs))))
+     :ability-id-query {:in '{?ability-name :unit-type}
+                        :query '[[?build-me :unit-type/name ?ability-name]
+                                 [?build-me :unit-type/ability-id ?ability-id]]}
+     :is-building-query {:in '{?ability-id :ability-id}
+                         :query '[[?ab-e-id :ability-type/is-building ?is-building]
+                                  [?ab-e-id :ability-type/id ?ability-id]]}
+     :is-refinery-query (fn [{:keys [ability-id] :as env} _]
+                          (assoc env :is-refinery (= ability-id 320)))
+     :footprint-radius-query {:in '{?ability-id :ability-id}
+                              :query '[[?a :ability-type/id ?ability-id]
+                                       [?a :ability-type/footprint-radius ?footprint-radius]]}
+     :available-casters-query {:in '{?ability-id :ability-id}
+                               :query '[[?unit-tag :unit/unit-type ?built-unit-type]
+                                        [?t :unit-type/unit-id ?built-unit-type]
+                                        [?t :unit-type/name ?name]
+                                        [(+ 880000 ?ability-id) ?ab-e-id]
+                                        [?t :unit-type/abilities ?ab-e-id]]
+                               :find ['[?unit-tag ...]]
+                               :transform-result set}
+     :ability-order-already-issued-query {:in '{?ability-id :ability-id}
+                                          :query '[[?unit-tag :unit/orders ?order]
+                                                   [?unit-tag :unit/unit-type ?type-id]
+                                                   [?order :order/ability-id ?ability-id]]
+                                          :find '[?unit-tag ?order]
+                                          :transform-result (fn [result] (set (map first result)))}
+     :available-casters remove-occupied-casters
+     :food-available-query {:query
+                            '[[?l :player-common/food-used ?food-used]
+                              [?l :player-common/food-cap ?food-cap]
+                              [(- ?food-cap ?food-used) ?food-available]]
+                            :from ['[?food-available]]}
+     :do-times (if (= unit-type "SupplyDepot")
+                 (fn [{:keys [food-available ability-order-already-issued] :as env} _]
+                   (assoc env :do-times (- (int (/ (- 13 food-available) 10))
+                                           (count ability-order-already-issued))))
+                 (fn [{:keys [current-count is-building ability-order-already-issued] :as env} _]
+                   (assoc env :do-times (- (- until-count current-count)
+                                           (count ability-order-already-issued)))))
+     :actions update-build-actions]
     :action-goals [{:unit-type unit-type
                     :type :until-count
                     :amount (if (= unit-type "SupplyDepot") 21 until-count)}]
