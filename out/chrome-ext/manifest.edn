@@ -10,7 +10,7 @@
 
   :content-script
   {:init-fn cljsc2.cljs.contentscript.core/init!
-   :chrome/options {:matches ["http://192.168.1.94:*/*"]
+   :chrome/options {:matches ["http://192.168.1.94:*/*", "https://cljsc.org:*/*"]
                     :run-at "document_idle"
                     }}}
 
