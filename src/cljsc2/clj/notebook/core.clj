@@ -100,9 +100,12 @@
   (swap! server-db
          #(-> %
               (update :process/by-id (fn [processes]
+                                       (try (sh/destroy (get-in processes [port :process/process]))
+                                            (catch Exception e (timbre/debug "couldn't destroy " port)))
                                        (dissoc processes port)))
               (update :root/processes (fn [processes]
-                                        (vec (filter (comp not #{[:process/by-id port]}) processes))))))
+                                        (vec (filter (comp not #{[:process/by-id port]}) processes))))
+              (update :connection/by-id (fn [cs] (dissoc cs port)))))
   (doseq [id (:any @(:connected-uids ws))]
     (push ws id :process-died [:process/by-id port])))
 
@@ -127,9 +130,9 @@
                            :db/id port
                            :process/run-config config-ident-path
                            :process/runs []}
-              new-run-config {:run-config/run-size 160
-                              :run-config/step-size 16
-                              :run-config/restart-on-episode-end true
+              new-run-config {:run-config/run-size 5000
+                              :run-config/step-size 50
+                              :run-config/restart-on-episode-end false
                               :db/id config-id}]
           (add-process server-db process-ident-path new-process)
           (add-run-config server-db config-ident-path new-run-config process-ident-path)))
@@ -156,7 +159,7 @@
   (identical? (:status (cljsc2.clj.core/send-request-and-get-response-message
                         conn
                         #:SC2APIProtocol.sc2api$RequestGameInfo{:game-info {}}))
-              :in-game))
+                :in-game))
 
 (defn run-ended [server-db run-id port]
   (fn [game-loop run-loop]
@@ -189,7 +192,7 @@
 (defn add-game-info [server-db port]
   (let [ident-path [:process/by-id port]
         game-info (cljsc2.clj.core/send-request-and-get-response-message
-                   (get-conn server-db 5000)
+                   (get-conn server-db port)
                    #:SC2APIProtocol.sc2api$RequestGameInfo{:game-info {}})]
     (swap! server-db assoc-in (conj ident-path :process/game-info) (:game-info game-info))
     (doseq [id (:any @(:connected-uids ws))]
@@ -230,13 +233,17 @@
 (defn status [conn]
   (:status (cljsc2.clj.core/request-observation conn)))
 
-(defn load-new-game [conn run-map-config]
+(defn load-new-game [conn run-map-config player-setups interface-options]
   (do (println "Loading map..")
       (case (status conn)
         :ended (cljsc2.clj.core/restart-game conn)
-        (do (cljsc2.clj.core/load-map conn run-map-config)
-            (Thread/sleep 10000)
-            (cljsc2.clj.core/flush-incoming-responses conn)))))
+        (do (cljsc2.clj.core/load-map conn run-map-config player-setups interface-options)
+            (loop [times 0
+                   rdy (ready-for-actions? conn)]
+              (if (and (< times 20)
+                       (not rdy))
+                (recur (inc times) (ready-for-actions? conn))
+                conn))))))
 
 (declare server-db)
 
@@ -247,18 +254,64 @@
 
 (declare connection)
 
-(defn make-ready [server-db connection]
+(defn get-game-config [server-db]
+  (prim/db->tree
+   [{:root/process-starter
+     [{:process-starter/game-config
+       [{:game-config/player-setups
+         [:SC2APIProtocol.sc2api$PlayerSetup/difficulty
+          :SC2APIProtocol.sc2api$PlayerSetup/type
+          :SC2APIProtocol.sc2api$PlayerSetup/race]}
+        {:game-config/interface-options
+         [:SC2APIProtocol.sc2api$InterfaceOptions/raw
+          :SC2APIProtocol.sc2api$InterfaceOptions/score
+          {:SC2APIProtocol.sc2api$InterfaceOptions/feature-layer
+           [:SC2APIProtocol.sc2api$SpatialCameraSetup/width
+            {:SC2APIProtocol.sc2api$SpatialCameraSetup/resolution
+             [:SC2APIProtocol.common$Size2DI/x
+              :SC2APIProtocol.common$Size2DI/y]}
+            {:SC2APIProtocol.sc2api$SpatialCameraSetup/minimap-resolution
+             [:SC2APIProtocol.common$Size2DI/x
+              :SC2APIProtocol.common$Size2DI/y]}]}
+          {:SC2APIProtocol.sc2api$InterfaceOptions/render
+           [:SC2APIProtocol.sc2api$SpatialCameraSetup/width
+            {:SC2APIProtocol.sc2api$SpatialCameraSetup/resolution
+             [:SC2APIProtocol.common$Size2DI/x
+              :SC2APIProtocol.common$Size2DI/y]}
+            {:SC2APIProtocol.sc2api$SpatialCameraSetup/minimap-resolution
+             [:SC2APIProtocol.common$Size2DI/x
+              :SC2APIProtocol.common$Size2DI/y]}]}]}]}]}]
+   @server-db
+   @server-db))
+
+(defn get-interface-options [result]
+  (get-in result
+          [:root/process-starter
+           :process-starter/game-config
+           :game-config/interface-options]))
+
+(defn get-player-setups [result]
+  (get-in result
+          [:root/process-starter
+           :process-starter/game-config
+           :game-config/player-setups]))
+
+(defn make-ready [server-db connection port]
   (if-not (ready-for-actions? connection)
-    (do (load-new-game connection (val (first (:map-config/by-id @server-db))))
-        (add-game-info server-db 5000)
+    (do (let [result (get-game-config server-db)]
+          (load-new-game connection
+                         (val (first (:map-config/by-id @server-db)))
+                         (get-player-setups result)
+                         (get-interface-options result)))
+        (add-game-info server-db port)
         (cljsc2.clj.core/quick-save connection)
         (swap! server-db
                (fn [s]
                  (-> s
-                     (assoc-in [:process/by-id 5000 :process/savepoint-at]
+                     (assoc-in [:process/by-id port :process/savepoint-at]
                                1))))
         (doseq [id (:any @(:connected-uids ws))]
-          (push ws id :savepoint-added {:ident-path [:process/by-id 5000]
+          (push ws id :savepoint-added {:ident-path [:process/by-id port]
                                         :savepoint-at 1}))
         connection)
     connection))
@@ -273,10 +326,11 @@
                               :SC2APIProtocol.sc2api$Action/action-ui
                               :SC2APIProtocol.sc2api$Action/action-chat])))))
 
-(defn run-sc [agent-fn run-end-fn {:keys [init-fn run-for-steps ran-for-steps game-loop
+(defn run-sc [agent-fn run-end-fn connection {:keys [init-fn run-for-steps ran-for-steps game-loop
                                           run-ended? game-ended?]}]
   (try
-    (let [run (add-run server-db
+    (let [port (cljsc2.clj.core/get-port connection)
+          run (add-run server-db
                        port)
           {:keys [run-config/step-size
                   run-config/restart-on-episode-end
@@ -296,8 +350,8 @@
         (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
         (if restart-on-episode-end
           (if (and game-ended? (not run-ended?))
-            (concat [run-result] (do (make-ready server-db connection)
-                                     (run-sc agent-fn run-end-fn
+            (concat [run-result] (do (make-ready server-db connection port)
+                                     (run-sc agent-fn run-end-fn connection
                                              (assoc run-info :run-for-steps
                                                     (- (or run-for-steps run-size) ran-for-steps)))))
             [run-result])
@@ -318,11 +372,11 @@
                     cljsc2.clj.notebook.core/connection (cljsc2.clj.notebook.core/make-ready
                                   cljsc2.clj.notebook.core/server-db
                                   (cljsc2.clj.notebook.core/get-selected-connection
-                                    cljsc2.clj.notebook.core/server-db))
+                                    cljsc2.clj.notebook.core/server-db) 5000)
                     connection (cljsc2.clj.notebook.core/make-ready
                                   cljsc2.clj.notebook.core/server-db
                                   (cljsc2.clj.notebook.core/get-selected-connection
-                                    cljsc2.clj.notebook.core/server-db))]"
+                                    cljsc2.clj.notebook.core/server-db) 5000)]"
          (cond
            (is-action? parsed-code) (if (spec/valid? :SC2APIProtocol.sc2api/Action
                                                      parsed-code)
@@ -347,7 +401,6 @@
 
 (def dir-watcher
   (do
-    (Thread/sleep 10000)
     (hawk/watch! [{:paths [(str (System/getenv "XDG_RUNTIME_DIR") "/jupyter")]
                    :handler (fn [_ {:keys [file kind]}]
                               (let [path (.getPath file)
@@ -419,9 +472,46 @@
 (start-web-server! 3446)
 
 (def server-db
-  (let [map-config {:map-config/path (str (cljsc2.clj.core/default-maps-path) "/DefeatBanelings.SC2Map")
-                    :db/id (uuid)}]
-    (atom {:root/processes []
+  (let [map-config {:map-config/path (str (cljsc2.clj.core/default-maps-path) "/Simple96.SC2Map")
+                    :db/id (uuid)}
+        game-config {:game-config/interface-options [:interface-options/by-id 1]
+                     :game-config/player-setups [[:player-setup/by-id 1] [:player-setup/by-id 2]]
+                     :db/id 1}]
+    (atom {:game-config/by-id {1 game-config}
+           :player-setup/by-id {1 #:SC2APIProtocol.sc2api$PlayerSetup
+                                {:db/id 1
+                                 :race "Terran"
+                                 :type "Participant"}
+                                2 #:SC2APIProtocol.sc2api$PlayerSetup
+                                {:db/id 2
+                                 :race "Protoss"
+                                 :type "Computer"
+                                 :difficulty "Easy"}}
+           :interface-options/by-id {1 #:SC2APIProtocol.sc2api$InterfaceOptions
+                                     {:db/id 1
+                                      :raw true
+                                      :score true
+                                      :feature-layer [:spatial-camera-setup/by-id 1]
+                                      :render [:spatial-camera-setup/by-id 2]}}
+           :root/processes []
+           :spatial-camera-setup/by-id {1 #:SC2APIProtocol.sc2api$SpatialCameraSetup
+                                        {:db/id 1
+                                         :width 24
+                                         :resolution [:resolution/by-id 1]
+                                         :minimap-resolution [:resolution/by-id 2]}
+                                        2 #:SC2APIProtocol.sc2api$SpatialCameraSetup
+                                        {:db/id 2
+                                         :width 24
+                                         :resolution [:resolution/by-id 3]
+                                         :minimap-resolution [:resolution/by-id 4]}}
+           :resolution/by-id {1 #:SC2APIProtocol.common$Size2DI{:db/id 1
+                                                                :x 84 :y 84}
+                              2 #:SC2APIProtocol.common$Size2DI{:db/id 2
+                                                                :x 64 :y 64}
+                              3 #:SC2APIProtocol.common$Size2DI{:db/id 3
+                                                                :x 84 :y 84}
+                              4 #:SC2APIProtocol.common$Size2DI{:db/id 4
+                                                                :x 64 :y 64}}
            :process/by-id {}
            :connection/by-id {}
            :run/by-id {}
@@ -435,7 +525,8 @@
                                         (filter (fn [f] (not (clojure.string/starts-with? (.getName f) "."))))
                                         (map (fn [f] [(.getAbsolutePath f) (.getName f)]))
                                         vec))
-                                  :process-starter/map-config [:map-config/by-id (:db/id map-config)]}})))
+                                  :process-starter/map-config [:map-config/by-id (:db/id map-config)]
+                                  :process-starter/game-config [:game-config/by-id 1]}})))
 
 #_(add-process server-db
                [:process/by-id 5000]
@@ -461,6 +552,13 @@
 (defquery-root :root/starcraft-static-data
   (value [env params]
          cljsc2.clj.game-parsing/knowledge-base))
+
+(defquery-entity :game-config/by-id
+  (value [env id params]
+         (prim/db->tree
+          (:query env)
+          (get-in @server-db [:game-config/by-id id])
+          (get-in @server-db [:game-config/by-id id]))))
 
 (defquery-entity :run-config/by-id
   (value [env id params]
@@ -528,6 +626,51 @@
               {})))
 
 (defmutation cljsc2.cljs.contentscript.core/submit-run-config [params]
+  (action [env]
+          (do
+            (swap! server-db
+                   (fn [s]
+                     (reduce (fn [acc [ident-path diff]]
+                               (timbre/debug ident-path diff)
+                               (reduce (fn [acc [key {:keys [after] :as it}]]
+                                         (assoc-in acc (conj ident-path key) after))
+                                       acc
+                                       diff))
+                             s
+                             (:diff params))))
+            {})))
+
+(defmutation cljsc2.cljs.contentscript.core/submit-player-setup [params]
+  (action [env]
+          (do
+            (swap! server-db
+                   (fn [s]
+                     (reduce (fn [acc [ident-path diff]]
+                               (timbre/debug ident-path diff)
+                               (reduce (fn [acc [key {:keys [after] :as it}]]
+                                         (assoc-in acc (conj ident-path key) after))
+                                       acc
+                                       diff))
+                             s
+                             (:diff params))))
+            {})))
+
+(defmutation cljsc2.cljs.contentscript.core/submit-resolution [params]
+  (action [env]
+          (do
+            (swap! server-db
+                   (fn [s]
+                     (reduce (fn [acc [ident-path diff]]
+                               (timbre/debug ident-path diff)
+                               (reduce (fn [acc [key {:keys [after] :as it}]]
+                                         (assoc-in acc (conj ident-path key) after))
+                                       acc
+                                       diff))
+                             s
+                             (:diff params))))
+            {})))
+
+(defmutation cljsc2.cljs.contentscript.core/submit-interface-options [params]
   (action [env]
           (do
             (swap! server-db

@@ -232,18 +232,19 @@
                  :success)))
   ([conn ability-id builder-tag x y]
    (when (and x y)
-     (identical? (-> (core/send-request-and-get-response-message
-                      conn
-                      #:SC2APIProtocol.query$RequestQuery
-                      {:query #:SC2APIProtocol.query$RequestQuery
-                       {:placements
-                        [#:SC2APIProtocol.query$RequestQueryBuildingPlacement
-                         {:ability-id ability-id
-                          :placing-unit-tag builder-tag
-                          :target-pos #:SC2APIProtocol.common$Point2D
-                          {:x x
-                           :y y}}]}})
-                     :query :placements first :result)
+     (identical? (let [res (core/send-request-and-get-response-message
+                            conn
+                            #:SC2APIProtocol.query$RequestQuery
+                            {:query #:SC2APIProtocol.query$RequestQuery
+                             {:placements
+                              [#:SC2APIProtocol.query$RequestQueryBuildingPlacement
+                               {:ability-id ability-id
+                                :placing-unit-tag builder-tag
+                                :target-pos #:SC2APIProtocol.common$Point2D
+                                {:x x
+                                 :y y}}]}})]
+                   (-> res
+                       :query :placements first :result))
                  :success))))
 
 (defn find-location [connection builder-tag ability-id positions]

@@ -42,7 +42,8 @@
                  [ring/ring-defaults "0.3.1"]
                  [compojure "1.5.1"]
                  [clojupyter "0.2.1-SNAPSHOT" :exclusions [org.clojure/tools.reader]]
-                 [lambda-ml "0.1.1"]]
+                 [lambda-ml "0.1.1"]
+                 [com.stuartsierra/stacktrace.raw "0.1.0-SNAPSHOT"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]

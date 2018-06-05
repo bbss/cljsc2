@@ -3,6 +3,7 @@
    [manifold.stream :as strm :refer [stream]]
    [manifold.deferred :as d]
    [aleph.http :as http]
+   [clojure.core.async :as a]
    [perseverance.core :as p]
    [me.raynes.conch.low-level :as sh]
    [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]]
@@ -35,7 +36,7 @@
 
 (defn restart-conn
   ([] (restart-conn "127.0.0.1" 5000))
-  ([host port] (restart-conn host port 20))
+  ([host port] (restart-conn host port 3))
   ([host port timeout]
    (let [address (str "ws://" host ":" port "/sc2api")]
      (p/retry {:strategy (p/constant-retry-strategy 2000 timeout)}
@@ -72,8 +73,11 @@
   ([] (start-client (default-sc-path)))
   ([path] (start-client path "127.0.0.1" 5000))
   ([path host port]
-   (sh/proc path
-    "-listen" host "-port" (str port) "-displayMode" "0" "-eglpath" "/usr/lib/nvidia-384/libEGL.so")))
+   (let [proc (sh/proc path
+                       "-listen" host "-port" (str port) "-displayMode" "0" "-eglpath" "/usr/lib/nvidia-384/libEGL.so"
+                       "-verbose")]
+     (a/go (spit (str port ".log") (sh/stream-to-string proc :err) :append true))
+     proc)))
 
 (def Request
   (protodef SC2APIProtocol.Sc2Api$Request))
@@ -83,8 +87,7 @@
   ([path]
    (->> (file-seq (clojure.java.io/file path))
         (map #(.getPath %))
-        (filter #(clojure.string/ends-with? % ".SC2Map"))
-        )))
+        (filter #(clojure.string/ends-with? % ".SC2Map")))))
 
 (def Response
   (protodef SC2APIProtocol.Sc2Api$Response))
@@ -96,7 +99,7 @@
                          :buffer-size)]
     (if (= buffer-size 0)
       nil
-      (if (= buffer-size 1)
+      (if (> buffer-size 0)
         (strm/take! connection)
         (do (strm/take! connection)
             (recur (-> connection
@@ -144,17 +147,33 @@
        (recur (latest-response-message connection))
        :done))))
 
+(defn get-port [conn]
+  (let [conn-ip (:remote-address (:connection (.description (.sink conn))))]
+    (Integer/parseInt (subs conn-ip (inc (clojure.string/last-index-of conn-ip ":"))))))
+
 (defn send-request-and-get-response-message [connection request]
   (let [req (try @(send-request connection request)
-                 (catch Exception e (timbre/debug "exception sending request" request " with error: " e)))]
+                 (catch Exception e (do (timbre/debug "trying again after exception sending request"
+                                                      request
+                                                      " with error: "
+                                                      e)
+                                        (try @(send-request connection request)
+                                             (catch Exception e (timbre/debug "failed a second time" request " with error: " e))))))]
     (loop [res (latest-response-message connection)
-           depth 0]
-      (when (> depth 10000000) (println "depth > 10000000"))
-      (if (> depth 10000000)
-        (throw (Exception. (str req "tried request > 10000000 times"))))
-      (if (identical? res nil)
-        (recur (latest-response-message connection) (inc depth))
-        res))))
+           depth 0
+           sleep-time 0]
+      (if (> depth 2000)
+        (throw (Exception. (str request " tried request > 10000000 times on port: " (get-port connection)))))
+      (if (= res nil)
+        (do (Thread/sleep sleep-time)
+            (recur (latest-response-message connection) (inc depth)
+                   (if (and (> depth 10)
+                            (< sleep-time 20))
+                     (inc sleep-time)
+                     sleep-time)))
+        (do
+          (when (not (= (flush-incoming-responses connection) :done)) (throw (Throwable. "more incoming, shouldn't happen")))
+          res)))))
 
 (defn req [connection req-data]
   (send-request-and-get-response-message connection req-data))
@@ -187,7 +206,9 @@
 
 (defn quick-save [conn]
   (send-request-and-get-response-message
-   conn #:SC2APIProtocol.sc2api$RequestQuickSave{:quick-save {}}))
+   conn #:SC2APIProtocol.sc2api$RequestQuickSave{:quick-save {}})
+  (Thread/sleep 2000)
+  (latest-response-message conn))
 
 (defn quick-load [conn]
   (send-request-and-get-response-message
@@ -270,43 +291,45 @@
         }}}))))
 
 (defn load-map
-  ([connection] (load-map connection {:map-config/path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}))
+  ([connection]
+   (load-map connection {:map-config/path "/Applications/StarCraft II/Maps/Melee/Simple64.SC2Map"}))
   ([connection {:keys [map-config/path] :as config}]
-   (d/chain
-    (send-request
-     connection
-     #:SC2APIProtocol.sc2api$RequestCreateGame
-     {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
-      {:map #:SC2APIProtocol.sc2api$LocalMap
-       {:local-map
-        {:map-path path}}
-       :player-setup
-       [#:SC2APIProtocol.sc2api$PlayerSetup
-        {:race "Terran" :type "Participant"}
-        #:SC2APIProtocol.sc2api$PlayerSetup
-        {:race "Protoss" :type "Computer"}]}})
-    (send-request
-     connection
+   (load-map connection
+             config
+             #:SC2APIProtocol.sc2api$InterfaceOptions
+             {:raw true
+              :score true
+              :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
+              {:width 24
+               :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+               :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}
+              :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
+              {:width 24
+               :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
+               :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}
+              }))
+  ([connection {:keys [map-config/path] :as config} player-setups interface-options]
+   (send-request-and-get-response-message
+    connection
+    #:SC2APIProtocol.sc2api$RequestCreateGame
+    {:create-game #:SC2APIProtocol.sc2api$RequestCreateGame
+     {:map #:SC2APIProtocol.sc2api$LocalMap
+      {:local-map
+       {:map-path path}}
+      :player-setup player-setups}})
+   (send-request-and-get-response-message
+    connection
+    #:SC2APIProtocol.sc2api$RequestJoinGame
+    {:join-game
      #:SC2APIProtocol.sc2api$RequestJoinGame
-     {:join-game
+     {:participation
       #:SC2APIProtocol.sc2api$RequestJoinGame
-      {:participation
-       #:SC2APIProtocol.sc2api$RequestJoinGame
-       {:race "Terran"}
-       :options #:SC2APIProtocol.sc2api$InterfaceOptions
-       {:raw true
-        :score true
-        :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
-        {:width 24
-         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-         }
-        :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
-        {:width 24
-         :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-         }
-        }}}))))
+      {:race (:SC2APIProtocol.sc2api$PlayerSetup/race
+              (first
+               (filter (comp #{"Participant"} :SC2APIProtocol.sc2api$PlayerSetup/type)
+                       player-setups)))}
+      :options interface-options}})
+   (flush-incoming-responses connection)))
 
 (defn run-for [n]
   (fn [starting-obs]
@@ -321,10 +344,6 @@
   (send-request-and-get-response-message
    connection
    #:SC2APIProtocol.sc2api$RequestObservation{:observation {}}))
-
-(defn get-port [conn]
-  (let [conn-ip (:remote-address (:connection (.description (.sink conn))))]
-    (subs conn-ip (inc (clojure.string/last-index-of conn-ip ":")))))
 
 (defn do-sc2
   ([connection step-fn]
@@ -373,11 +392,11 @@
                         step-actions)
                  (do
                    (send-request-and-get-response-message
-                    connection
-                    #:SC2APIProtocol.sc2api$RequestAction
-                    {:action #:SC2APIProtocol.sc2api$RequestAction
-                     {:actions
-                      step-actions}})
+                            connection
+                            #:SC2APIProtocol.sc2api$RequestAction
+                            {:action #:SC2APIProtocol.sc2api$RequestAction
+                             {:actions
+                              step-actions}})
                    (request-step connection stepsize)
                    (let [after-obs (send-request-and-get-response-message
                                     connection

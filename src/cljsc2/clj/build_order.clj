@@ -11,8 +11,7 @@
    cljsc2.clj.core
    cljsc2.clj.rules
    cljsc2.clj.notebook.core
-   cljsc2.clj.game-parsing
-   cljsc2.clj.build-order))
+   cljsc2.clj.game-parsing))
 
 (defn run-query [env assoc-key {:keys [in query find transform-result]
                                 :or {transform-result ffirst}}]
@@ -237,21 +236,48 @@
              unit-has-order-rule)))
 
 (defn execute-plans [& plans]
-  (let [contained-planner (first (filter #(instance? clojure.lang.Atom %) plans))
+  (let [connection  (or connection (first (filter #(= manifold.stream.SplicedStream (type %)) plans)))
+        contained-planner (first (filter #(instance? clojure.lang.Atom %) plans))
         planner (if contained-planner
-                  (do (swap! contained-planner assoc :plans (apply concat (remove #(instance? clojure.lang.Atom %) plans)))
+                  (do (swap! contained-planner assoc :plans (apply concat
+                                                                   (remove #(= manifold.stream.SplicedStream (type %))
+                                                                           (remove #(instance? clojure.lang.Atom %) plans))))
                       contained-planner)
-                  (atom {:plans (apply concat plans)
+                  (atom {:plans (apply concat (remove #(= manifold.stream.SplicedStream (type %))
+                                                      (remove #(instance? clojure.lang.Atom %) plans)))
                          :env {}}))
         executor-start-step-fn (plans-executor planner)
         executor-step-fn (executor-start-step-fn
-                          (get-in (cljsc2.clj.core/request-observation connection) [:observation :observation])
+                               (get-in (cljsc2.clj.core/request-observation connection)
+                                       [:observation :observation])
                           connection)]
     [(run-sc
       executor-step-fn
       (fn [_] (finished? planner))
+      connection
       {}) planner]))
 
+(defn execute-plans-fn [& plans]
+  (fn [connection]
+    (let [contained-planner (first (filter #(instance? clojure.lang.Atom %) plans))
+          planner (if contained-planner
+                    (do (swap! contained-planner assoc :plans (apply concat
+                                                                     (remove #(= manifold.stream.SplicedStream (type %))
+                                                                             (remove #(instance? clojure.lang.Atom %) plans))))
+                        contained-planner)
+                    (atom {:plans (apply concat (remove #(= manifold.stream.SplicedStream (type %))
+                                                        (remove #(instance? clojure.lang.Atom %) plans)))
+                           :env {}}))
+          executor-start-step-fn (plans-executor planner)
+          executor-step-fn (executor-start-step-fn
+                            (get-in (cljsc2.clj.core/request-observation connection)
+                                    [:observation :observation])
+                            connection)]
+      [(run-sc
+        executor-step-fn
+        (fn [_] (finished? planner))
+        connection
+        {}) planner])))
 
 (defn update-keep-gas-mined [{:keys [knowledge actions] :as env} _]
   (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
@@ -277,6 +303,34 @@
 
 (defn keep-gas-mined []
   [{:action-spec [:keeping-gas-mined update-keep-gas-mined]
+    :action-goals [{:type :env
+                    :evaluator (fn [_] false)}]
+    :remove-after-goal-attained :continuous}])
+
+(defn update-make-idle-workers-mine [{:keys [knowledge actions] :as env} _]
+  (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
+                                                        :SC2APIProtocol.raw$ActionRaw/action
+                                                        :SC2APIProtocol.raw$ActionRaw/unit-command
+                                                        :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
+
+                                            actions)))
+        inactive-workers (clojure.set/difference (inactive-scvs knowledge)
+                                                 occupied-casters)
+        mineral-tag (ffirst (ds/q '[:find ?mineral-tag
+                                    :in $ %
+                                    :where
+                                    [?mineral-tag :unit/mineral-contents ?mins]
+                                    [(> ?mins 0)]]
+                                  knowledge))
+        added-mine-actions (if mineral-tag
+                             {:actions (concat actions (map #(ability-to-action [%] 295 mineral-tag {})
+                                                            inactive-workers))
+                              :available-workers inactive-workers}
+                             {:actions actions})]
+    (assoc env :actions (:actions added-mine-actions))))
+
+(defn make-idle-workers-mine []
+  [{:action-spec [:make-idle-workers-mine update-make-idle-workers-mine]
     :action-goals [{:type :env
                     :evaluator (fn [_] false)}]
     :remove-after-goal-attained :continuous}])
@@ -394,11 +448,16 @@
 
 (defn resolve-location [location]
   (fn [{:keys [knowledge connection] :as env} _]
-    (let [{:keys [x y]} (case location
-                          :enemy-base (ffirst (ds/q '[:find [?locations ...]
-                                                      :where [_ :game-info/start-locations ?locations]]
-                                                    knowledge))
-                          [15 15])]
+    (let [{:keys [x y]} (cond
+                          (= location :enemy-base) (rand-nth
+                                                    (first
+                                                     (ds/q '[:find [?locations ...]
+                                                             :where [_ :game-info/start-locations ?locations]]
+                                                           knowledge)))
+                          (map? location) location
+                          (vector? location) {:x (first location)
+                                              :y (second location)}
+                          :else [15 15])]
       (assoc env :attack-at [x y]))))
 
 (defn attack [& {:keys [at-location
@@ -492,4 +551,5 @@
                                  ))
  (build "Marine" :until-count 5)
  (keep-gas-mined)
+ (make-idle-workers-mine)
  (camera-follow-army))
