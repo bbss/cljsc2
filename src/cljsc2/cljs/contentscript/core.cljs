@@ -339,21 +339,31 @@
                                :selected-ability nil}))
       (prim/get-state this))))
 
-(defn ui-draw-sizes [this local-state]
+(defn ui-draw-sizes [this local-state render-size minimap-size]
   (dom/div
    "Drawing size: "
    (dom/button #js {:onClick #(prim/set-state!
                                this
                                (merge local-state
-                                      {:draw-size {:x 84 :y 84}
-                                       :draw-size-minimap {:x 64 :y 64}}))}
+                                      {:draw-size render-size
+                                       :draw-size-minimap minimap-size}))}
                "Rendered resolution")
    (dom/button #js {:onClick #(prim/set-state!
                                this
                                (merge local-state
-                                      {:draw-size {:x 336 :y 336}
-                                       :draw-size-minimap {:x 256 :y 256}}))}
-               "Enlarged")))
+                                      {:draw-size {:x (* 2 (:x render-size))
+                                                   :y (* 2 (:y render-size))}
+                                       :draw-size-minimap {:x (* 2 (:x minimap-size))
+                                                           :y (* 2 (:y minimap-size))}}))}
+               "Enlarged (2x)")
+   (dom/button #js {:onClick #(prim/set-state!
+                               this
+                               (merge local-state
+                                      {:draw-size {:x (* 4 (:x render-size))
+                                                   :y (* 4 (:y render-size))}
+                                       :draw-size-minimap {:x (* 4 (:x minimap-size))
+                                                           :y (* 4 (:y minimap-size))}}))}
+               "Enlarged (4x)")))
 
 (defn send-camera-action [this port x y]
   (fn [_]
@@ -401,16 +411,16 @@
     (for [[layer-name layer-path] feature-layer-render-paths]
       (dom/option #js {:key layer-name
                        :value layer-path} (str layer-name))))
-   (ui-draw-sizes this local-state)
+   (ui-draw-sizes this local-state render-size minimap-size)
    (dom/canvas
     #js {:ref "process-feed-minimap"
-         :width (:x draw-size-minimap)
-         :height (:y draw-size-minimap)
-         :onMouseUp (minimap-mouse-up this port draw-size-minimap minimap-size)})
+         :width (or (:x draw-size-minimap) (:x minimap-size))
+         :height (or (:y draw-size-minimap) (:y minimap-size))
+         :onMouseUp (minimap-mouse-up this port (or draw-size-minimap minimap-size) minimap-size)})
    (dom/canvas
     #js {:ref "process-feed"
-         :width (:x draw-size)
-         :height (:y draw-size)
+         :width (or (:x draw-size) (:x render-size))
+         :height (or (:y draw-size) (:y render-size))
          :onMouseDown (fn [evt]
                         (let [coords (event->dom-coords
                                       evt
@@ -420,7 +430,7 @@
                            (merge (prim/get-state this)
                                   {:selection {:start coords}}))))
          :onMouseMove (screen-mouse-move this)
-         :onMouseUp (screen-mouse-up this port draw-size render-size selected-ability)})
+         :onMouseUp (screen-mouse-up this port (or draw-size render-size) render-size selected-ability)})
    (ui-camera-move-arrows this port x y)))
 
 (defn ui-timeline [runs run-size step-size]
@@ -534,7 +544,301 @@
                                   (fn [e]
                                     (m/set-string! component field :event e)))}
                      options) field-label)))))
-(do js/window.thing)
+
+(defn update-player-setup-field [this id field]
+  (fn [e]
+    (prim/transact!
+     this
+     `[(update-player-setup ~{:field field
+                              :id id
+                              :value (.-value (.-target e))})])))
+
+(defsc PlayerSetup [this {:keys [:SC2APIProtocol.sc2api$PlayerSetup/difficulty
+                                 :SC2APIProtocol.sc2api$PlayerSetup/type
+                                 :SC2APIProtocol.sc2api$PlayerSetup/race
+                                 :ui/editting
+                                 :db/id]}]
+  {:query [:SC2APIProtocol.sc2api$PlayerSetup/difficulty
+           :SC2APIProtocol.sc2api$PlayerSetup/type
+           :SC2APIProtocol.sc2api$PlayerSetup/race
+           :ui/editting
+           :db/id
+           fs/form-config-join]
+   :ident [:player-setup/by-id :db/id]
+   :form-fields #{:SC2APIProtocol.sc2api$PlayerSetup/race}}
+  (dom/div
+   (if editting
+     (dom/div (dom/button #js {:onClick (fn [] (prim/transact! this `[(abort-player-setup ~{:id id})]))}
+                          "Abort player setup")
+              (dom/button #js {:onClick (fn [] (prim/transact! this `[(submit-player-setup ~{:id id
+                                                                                             :diff (fs/dirty-fields (prim/props this) true)})]))}
+                          "Save player setup"))
+     (dom/button #js {:onClick (fn [] (prim/transact! this `[(edit-player-setup ~{:id id})]))}
+                 "Edit player setup"))
+   (if editting
+     (dom/div
+      (dom/select #js {:value type
+                       :onChange (update-player-setup-field this id :SC2APIProtocol.sc2api$PlayerSetup/type)}
+                  (for [type ["Participant" "Computer"]]
+                    (dom/option #js {:key type
+                                     :value type}
+                                type)))
+      (dom/p "Race:")
+      (dom/select #js {:value race
+                       :onChange (update-player-setup-field this id :SC2APIProtocol.sc2api$PlayerSetup/race)}
+                  (for [race ["Protoss" "Terran" "Zerg" "Random"]]
+                    (dom/option #js {:key race
+                                     :value race}
+                                race)))
+      (when (= type "Computer")
+        (dom/div
+         (dom/p "Difficulty")
+         (dom/select
+          #js {:value difficulty
+               :onChange (update-player-setup-field this id :SC2APIProtocol.sc2api$PlayerSetup/difficulty)}
+          (map (fn [v]
+                 (dom/option #js {:key v
+                                  :value v}
+                             v))
+               ["VeryEasy" "Easy" "Medium" "MediumHard" "Harder" "Hard"
+                "VeryHard" "CheatVision" "CheatMoney" "CheatInsane"])))))
+     (dom/div (dom/p "Race: " race)
+              (when difficulty (dom/p "Difficulty: " difficulty))
+              (dom/p "Type: " type)))))
+
+(defmutation edit-player-setup [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (fs/add-form-config* PlayerSetup [:player-setup/by-id id])
+                       (assoc-in [:player-setup/by-id id :ui/editting] true))))))
+
+(defmutation abort-player-setup [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (fs/pristine->entity* [:player-setup/by-id id])
+                       (assoc-in [:player-setup/by-id id :ui/editting] false))))))
+
+(defmutation submit-player-setup [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (assoc-in [:player-setup/by-id id :ui/editting] false)
+                       (fs/entity->pristine* [:player-setup/by-id id])))))
+  (remote [env] true))
+
+(def ui-player-setup (prim/factory PlayerSetup {:keyfn :db/id}))
+
+
+(defsc Resolution [this {:keys [:SC2APIProtocol.common$Size2DI/x
+                                :SC2APIProtocol.common$Size2DI/y
+                                :ui/editting
+                                :db/id]}]
+  {:query [:SC2APIProtocol.common$Size2DI/x
+           :SC2APIProtocol.common$Size2DI/y
+           :db/id
+           :ui/editting
+           fs/form-config-join]
+   :ident [:resolution/by-id :db/id]
+   :form-fields #{:SC2APIProtocol.common$Size2DI/x
+                  :SC2APIProtocol.common$Size2DI/y}}
+  (dom/div
+   (if editting
+     (dom/div (dom/button #js {:onClick
+                               #(prim/transact! this `[(abort-resolution ~{:id id})])}
+                          "Abort resolution")
+              (dom/button #js {:onClick
+                               #(prim/transact! this `[(submit-resolution ~{:id id
+                                                                            :diff (fs/dirty-fields (prim/props this) true)})])}
+                          "Save resolution"))
+     (dom/button #js {:onClick #(prim/transact! this `[(edit-resolution ~{:id id})])}
+                 "Edit resolution"))
+   (if editting
+     (dom/div
+      (dom/p "X: ")
+      (input-with-label this :SC2APIProtocol.common$Size2DI/x x
+                        "Rendered horizontal pixels"
+                        {:type "number"
+                         :min 1
+                         :max 1024
+                         :style #js {:width "100px"}})
+      (dom/p "Y: ")
+      (input-with-label this :SC2APIProtocol.common$Size2DI/y y
+                        "Rendered vertical pixels"
+                        {:type "number"
+                         :min 1
+                         :max 1024
+                         :style #js {:width "100px"}}))
+     (dom/div
+      (dom/p (str "X: " x))
+      (dom/p (str "Y: " y))))))
+
+(defmutation edit-resolution [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (fs/add-form-config* Resolution [:resolution/by-id id])
+                       (assoc-in [:resolution/by-id id :ui/editting] true))))))
+
+(defmutation abort-resolution [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (fs/pristine->entity* [:resolution/by-id id])
+                       (assoc-in [:resolution/by-id id :ui/editting] false))))))
+
+(defmutation submit-resolution [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (assoc-in [:resolution/by-id id :ui/editting] false)
+                       (fs/entity->pristine* [:resolution/by-id id])))))
+  (remote [env] true))
+
+(def ui-resolution (prim/factory Resolution))
+
+(defsc SpatialCameraSetup
+  [this {:keys [SC2APIProtocol.sc2api$SpatialCameraSetup/width
+                SC2APIProtocol.sc2api$SpatialCameraSetup/resolution
+                SC2APIProtocol.sc2api$SpatialCameraSetup/minimap-resolution
+                :db/id]}]
+  {:query [:SC2APIProtocol.sc2api$SpatialCameraSetup/width
+           {:SC2APIProtocol.sc2api$SpatialCameraSetup/resolution (prim/get-query Resolution)}
+           {:SC2APIProtocol.sc2api$SpatialCameraSetup/minimap-resolution (prim/get-query Resolution)}
+           :db/id
+           fs/form-config-join]
+   :ident [:spatial-camera-setup/by-id :db/id]
+   :form-fields #{:SC2APIProtocol.sc2api$SpatialCameraSetup/width
+                  :SC2APIProtocol.sc2api$SpatialCameraSetup/resolution
+                  :SC2APIProtocol.sc2api$SpatialCameraSetup/minimap-resolution}}
+  (dom/div
+   (dom/h4 "Minimap resolution")
+   (ui-resolution minimap-resolution)
+   (dom/h4 "Map resolution")
+   (ui-resolution resolution)))
+
+(def ui-spatial-camera-setup (prim/factory SpatialCameraSetup))
+
+(defsc InterfaceOptions
+  [this {:keys [:SC2APIProtocol.sc2api$InterfaceOptions/raw
+                :SC2APIProtocol.sc2api$InterfaceOptions/score
+                :SC2APIProtocol.sc2api$InterfaceOptions/feature-layer
+                :SC2APIProtocol.sc2api$InterfaceOptions/render
+                :ui/editting
+                :db/id]}]
+  {:query [:SC2APIProtocol.sc2api$InterfaceOptions/raw
+           :SC2APIProtocol.sc2api$InterfaceOptions/score
+           {:SC2APIProtocol.sc2api$InterfaceOptions/feature-layer (prim/get-query SpatialCameraSetup)}
+           {:SC2APIProtocol.sc2api$InterfaceOptions/render (prim/get-query SpatialCameraSetup)}
+           :ui/editting
+           :db/id
+           fs/form-config-join]
+   :ident [:interface-options/by-id :db/id]
+   :form-fields #{:SC2APIProtocol.sc2api$InterfaceOptions/raw
+                  :SC2APIProtocol.sc2api$InterfaceOptions/score
+                  :SC2APIProtocol.sc2api$InterfaceOptions/feature-layer
+                  :SC2APIProtocol.sc2api$InterfaceOptions/render}}
+  (dom/div (if editting
+             (dom/div
+              (dom/button #js {:onClick
+                               (fn [] (prim/transact!
+                                       this
+                                       `[(abort-interface-options
+                                          ~{:id id})]))}
+                          "Abort raw/score")
+              (dom/button #js {:onClick
+                               (fn [] (prim/transact!
+                                       this
+                                       `[(submit-interface-options
+                                          ~{:id id
+                                            :diff (fs/dirty-fields (prim/props this) true)})]))}
+                          "Save raw/score"))
+             (dom/button #js {:onClick (fn [] (prim/transact! this `[(edit-interface-options ~{:id id})]))}
+                         "Edit raw/score"))
+           (if editting
+             (dom/div
+              #js {:style #js {:display "flex"}}
+              (dom/p "Raw data: ")
+              (input-with-label this :SC2APIProtocol.sc2api$InterfaceOptions/raw
+                                raw "" {:type "checkbox"
+                                        :checked raw})
+              (dom/p "Score: ")
+              (input-with-label this :SC2APIProtocol.sc2api$InterfaceOptions/score
+                                score "" {:type "checkbox"
+                                          :checked score}))
+             (dom/div
+              #js {:style #js {:display "flex"}}
+              (dom/div
+               (dom/p (str "Raw data: " raw))
+               (dom/p (str "Score: " score)))
+              ))
+           (dom/div
+            #js {:style #js {:display "flex"}}
+            (dom/div #js {:style #js {:margin "10px"}}
+             (dom/h3 "Feature layers")
+             (ui-spatial-camera-setup feature-layer))
+            (dom/div #js {:style #js {:margin "10px"}}
+             (dom/h3"Full RGB layers")
+             (ui-spatial-camera-setup render)))))
+
+(defmutation edit-interface-options [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (fs/add-form-config* InterfaceOptions [:interface-options/by-id id])
+                       (assoc-in [:interface-options/by-id id :ui/editting] true))))))
+
+(defmutation abort-interface-options [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (fs/pristine->entity* [:interface-options/by-id id])
+                       (assoc-in [:interface-options/by-id id :ui/editting] false))))))
+
+(defmutation submit-interface-options [{:keys [id]}]
+  (action [{:keys [state]}]
+          (swap! state
+                 (fn [s]
+                   (-> s
+                       (assoc-in [:interface-options/by-id id :ui/editting] false)
+                       (fs/entity->pristine* [:interface-options/by-id id])))))
+  (remote [env] true))
+
+(defn update-interface-options-field [this id field]
+  (fn [e]
+    (prim/transact!
+     this
+     `[(update-interface-setup
+        ~{:field field
+          :id id
+          :value (.-value (.-target e))})])))
+
+(def ui-interface-options (prim/factory InterfaceOptions))
+
+(defsc GameConfig [this {:keys [db/id
+                                game-config/interface-options
+                                game-config/player-setups]}]
+  {:query [:db/id
+           {:game-config/interface-options (prim/get-query InterfaceOptions)}
+           {:game-config/player-setups (prim/get-query PlayerSetup)}
+           fs/form-config-join]
+   :ident [:game-config/by-id :db/id]
+   :form-fields #{:game-config/player-setups}}
+  (dom/div #js {:style #js {:display "flex"}}
+           (map #(ui-player-setup %)
+                (or player-setups []))
+           (ui-interface-options interface-options)))
+
+(def ui-game-config (prim/factory GameConfig))
 
 (defsc RunConfig [this {:keys [db/id
                                run-config/step-size
@@ -657,6 +961,10 @@
           (swap! state assoc-in [:map-config/by-id id :map-config/path] path))
   (remote [env] true))
 
+(defmutation update-player-setup [{:keys [id field value]}]
+  (action [{:keys [state]}]
+          (swap! state assoc-in [:player-setup/by-id id field] value)))
+
 (def ui-run-config (prim/factory RunConfig))
 
 (defn paste-first-element [text]
@@ -678,32 +986,44 @@
            :process/savepoint-at
            :db/id]
    :initLocalState (fn [] {:selected-minimap-layer-path [:render-data :minimap]
-                           :selected-render-layer-path [:render-data :map]
-                           :draw-size {:x 336 :y 336}
-                           :draw-size-minimap {:x 256 :y 256}})
+                           :selected-render-layer-path [:render-data :map]})
    :componentDidUpdate (fn [_ _]
                          (let [{:keys [draw-size
                                        draw-size-minimap
                                        selected-render-layer-path
                                        selected-minimap-layer-path]}
-                               (prim/get-state this)]
+                               (prim/get-state this)
+                               runs (:process/runs (prim/props this))
+                               render-size (get-in (latest-observation-from-runs runs) [:render-data :map :size])
+                               minimap-size (get-in (latest-observation-from-runs runs) [:render-data :minimap :size])]
                            (render-screen this
-                                          draw-size
+                                          (or draw-size render-size)
                                           selected-render-layer-path)
                            (render-minimap this
-                                           draw-size-minimap
+                                           (or draw-size-minimap minimap-size)
                                            selected-minimap-layer-path)))
    :componentDidMount (fn []
                         (let [{:keys [draw-size
                                       draw-size-minimap
                                       selected-render-layer-path
                                       selected-minimap-layer-path]}
-                              (prim/get-state this)]
+                              (prim/get-state this)
+                              runs (:process/runs (prim/props this))
+                              render-size (get-in (latest-observation-from-runs runs) [:render-data :map :size])
+                              minimap-size (get-in (latest-observation-from-runs runs) [:render-data :minimap :size])]
+                          (prim/set-state!
+                           this
+                           (merge (prim/get-state this)
+                                  {:draw-size {:x (* 2 (:x render-size))
+                                               :y (* 2 (:y render-size))}
+                                   :draw-size-minimap {:x (* 2 (:x minimap-size))
+                                                       :y (* 2 (:y minimap-size))}}))
+                          (ui-draw-sizes this (prim/get-state this) render-size minimap-size)
                           (render-screen this
-                                         draw-size
+                                         (or draw-size render-size)
                                          selected-render-layer-path)
                           (render-minimap this
-                                          draw-size-minimap
+                                          (or draw-size-minimap minimap-size)
                                           selected-minimap-layer-path)))
    :ident [:process/by-id :db/id]}
   (let [latest-observation (latest-observation-from-runs runs)
@@ -787,6 +1107,7 @@
      (ui-canvas this local-state port draw-size-minimap draw-size render-size
                 minimap-size selected-ability selected-minimap-layer-path selected-render-layer-path x y))))
 
+
 (def ui-process (prim/factory Process {:keyfn :db/id}))
 
 (defsc MapConfig [this _]
@@ -795,9 +1116,13 @@
 
 (defsc ProcessStarter
   [this {:keys [process-starter/available-maps
+                process-starter/game-config
                 process-starter/map-config]} {:keys [processes]}]
   {:query [:process-starter/available-maps
-           {:process-starter/map-config (prim/get-query MapConfig)}]}
+           {:process-starter/map-config (prim/get-query MapConfig)}
+           {:process-starter/game-config (prim/get-query GameConfig)}
+           fs/form-config-join]
+   :form-fields #{:process-starter/game-config}}
   (dom/div
    (dom/h4
     "New connections will load map: "
@@ -805,7 +1130,7 @@
             i (clojure.string/last-index-of
                (:map-config/path map-config) "/")
             map-name (subs map (inc i))]
-        map-name))
+      map-name))
    (dom/select
     #js {:value (:map-config/path map-config)
          :onChange (fn [e]
@@ -816,6 +1141,7 @@
                             :value absolute-path}
                        file-name))
          available-maps))
+   (when (seq game-config) (ui-game-config game-config))
    #_(dom/h4 "Commands will be executed on:"
            (dom/select
             #js {:value 5000
@@ -825,8 +1151,7 @@
 
 (def ui-process-starter (prim/factory ProcessStarter))
 
-(defsc Root [this {:keys [:root/processes :root/process-starter
-                          :root/starcraft-static-data]}]
+(defsc Root [this {:keys [:root/processes :root/process-starter :root/starcraft-static-data]}]
   {:query [{:root/processes (prim/get-query Process)}
            {:root/process-starter (prim/get-query ProcessStarter)}
            :root/starcraft-static-data]}
@@ -834,7 +1159,8 @@
                             "marginLeft" 65}}
            (when (empty? processes)
              (dom/h3 "There are no starcraft processes running yet, they will start automatically when you run a code cell. (play button or shortcut ctrl-enter)"))
-           (when (not (empty? process-starter)) (ui-process-starter (prim/computed process-starter {:processes processes})))
+           (when (and (not (empty? process-starter)) (not (seq processes)))
+             (ui-process-starter (prim/computed process-starter {:processes processes})))
            (map #(ui-process (prim/computed % {:knowledge-base starcraft-static-data}))
                 processes)))
 
@@ -937,26 +1263,26 @@
                :networking {:remote
                             (fw/make-websocket-networking
                              {:host (case :local-staging
-                                          :local "0.0.0.0:3446"
-                                          :local-staging "192.168.1.94:3446"
-                                          :remote-staging "cljsc.org:3446"
-                                          (pri "no ip for env"))
+                                      :local "0.0.0.0:3446"
+                                      :local-staging "192.168.1.94:3446"
+                                      :remote-staging "cljsc.org"
+                                      (pri "no ip for env"))
                               :push-handler (fn [m]
                                               (push-received @app m))
                               :transit-handlers {:read (merge {"literal-byte-string" (fn [it] it)}
                                                               datascript.transit/read-handlers)}
                               })}
                :started-callback (fn [app]
-                                   (go-loop [msg (:chsk @(:channel-socket (:remote (:networking app))))]
-                                     (do (load app ::model/processes Process
-                                               {:target [:root/processes]
-                                                :marker false})
-                                         (load app ::model/process-starter ProcessStarter
-                                               {:target [:root/process-starter]
-                                                :marker false})
-                                         (load app :root/starcraft-static-data Root
-                                               {:marker false
-                                                :post-mutation `make-conn})))))))
+                                   (js/setTimeout #(do (load app ::model/processes Process
+                                                             {:target [:root/processes]
+                                                              :marker false})
+                                                       (load app ::model/process-starter ProcessStarter
+                                                             {:target [:root/process-starter]
+                                                              :marker false})
+                                                       (load app :root/starcraft-static-data Root
+                                                             {:marker false
+                                                              :post-mutation `make-conn}))
+                                                  5000)))))
 
 (defn init! []
   (when-let [el (aget (.querySelectorAll js/document "#sc-viewer") 0)]
@@ -975,8 +1301,9 @@
     (reset-app!)
     (mount))
   (sente/chsk-disconnect!
-   (:chsk @(:channel-socket (:remote (:networking @app)))))
-  )
+   (:chsk @(:channel-socket (:remote (:networking @app))))))
+
+
 ;;in notebook page during devtime.
 ;; <script type="text/javascript">
 ;; setInterval(function () {
