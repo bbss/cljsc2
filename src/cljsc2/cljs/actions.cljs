@@ -4,6 +4,7 @@
             [clojure.core.async :refer [<! >!]]
             [cljsc2.cljs.core :refer [render-canvas feature-layer-draw-descriptions]]
             [cljsc2.cljc.model :as model]
+            [cljsc2.cljs.material_ui :refer [ui-button]]
             [cljs.spec.alpha :as spec]
             [fulcro.client :as fc]
             [fulcro.client.dom :as dom]
@@ -21,7 +22,7 @@
   (apply
    dom/div
    (map (fn [[id ability-name requires-point]]
-                  (dom/button #js {:key id
+                  (ui-button #js {:key id
                                    :onClick (fn [s] (action-select id ability-name requires-point))
                                    :disabled (= id (:ability-id selected-ability))}
                               (str ability-name)))

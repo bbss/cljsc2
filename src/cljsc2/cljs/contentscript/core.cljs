@@ -5,6 +5,7 @@
             ["./imageutil.js" :as iutil]
             [clojure.core.async :refer [<! >!]]
             [cljsc2.cljs.core :refer [render-canvas feature-layer-draw-descriptions]]
+            [cljsc2.cljs.material_ui :refer [ui-button ui-paper]]
             [cljsc2.cljs.actions :refer [ui-available-actions]]
             [cljsc2.cljc.model :as model]
             [datascript.transit :as dst]
@@ -342,13 +343,13 @@
 (defn ui-draw-sizes [this local-state render-size minimap-size]
   (dom/div
    "Drawing size: "
-   (dom/button #js {:onClick #(prim/set-state!
+   (ui-button #js {:onClick #(prim/set-state!
                                this
                                (merge local-state
                                       {:draw-size render-size
                                        :draw-size-minimap minimap-size}))}
                "Rendered resolution")
-   (dom/button #js {:onClick #(prim/set-state!
+   (ui-button #js {:onClick #(prim/set-state!
                                this
                                (merge local-state
                                       {:draw-size {:x (* 2 (:x render-size))
@@ -356,7 +357,7 @@
                                        :draw-size-minimap {:x (* 2 (:x minimap-size))
                                                            :y (* 2 (:y minimap-size))}}))}
                "Enlarged (2x)")
-   (dom/button #js {:onClick #(prim/set-state!
+   (ui-button #js {:onClick #(prim/set-state!
                                this
                                (merge local-state
                                       {:draw-size {:x (* 4 (:x render-size))
@@ -380,13 +381,13 @@
 
 (defn ui-camera-move-arrows [this port x y]
   (dom/div
-   (dom/button #js {:onClick (send-camera-action this port (- x 3) y)}
+   (ui-button #js {:onClick (send-camera-action this port (- x 3) y)}
                "left")
-   (dom/button #js {:onClick (send-camera-action this port x (- y 3))}
+   (ui-button #js {:onClick (send-camera-action this port x (- y 3))}
                "down")
-   (dom/button #js {:onClick (send-camera-action this port x (+ y 3))}
+   (ui-button #js {:onClick (send-camera-action this port x (+ y 3))}
                "up")
-   (dom/button #js {:onClick (send-camera-action this port (+ x 3) y)}
+   (ui-button #js {:onClick (send-camera-action this port (+ x 3) y)}
                "right")))
 
 (defn ui-game-info [port runs camera food-used food-cap minerals vespene]
@@ -568,12 +569,12 @@
    :form-fields #{:SC2APIProtocol.sc2api$PlayerSetup/race}}
   (dom/div
    (if editting
-     (dom/div (dom/button #js {:onClick (fn [] (prim/transact! this `[(abort-player-setup ~{:id id})]))}
+     (dom/div (ui-button #js {:onClick (fn [] (prim/transact! this `[(abort-player-setup ~{:id id})]))}
                           "Abort player setup")
-              (dom/button #js {:onClick (fn [] (prim/transact! this `[(submit-player-setup ~{:id id
+              (ui-button #js {:onClick (fn [] (prim/transact! this `[(submit-player-setup ~{:id id
                                                                                              :diff (fs/dirty-fields (prim/props this) true)})]))}
                           "Save player setup"))
-     (dom/button #js {:onClick (fn [] (prim/transact! this `[(edit-player-setup ~{:id id})]))}
+     (ui-button #js {:onClick (fn [] (prim/transact! this `[(edit-player-setup ~{:id id})]))}
                  "Edit player setup"))
    (if editting
      (dom/div
@@ -606,6 +607,7 @@
               (when difficulty (dom/p "Difficulty: " difficulty))
               (dom/p "Type: " type)))))
 
+
 (defmutation edit-player-setup [{:keys [id]}]
   (action [{:keys [state]}]
           (swap! state
@@ -633,7 +635,6 @@
 
 (def ui-player-setup (prim/factory PlayerSetup {:keyfn :db/id}))
 
-
 (defsc Resolution [this {:keys [:SC2APIProtocol.common$Size2DI/x
                                 :SC2APIProtocol.common$Size2DI/y
                                 :ui/editting
@@ -648,14 +649,14 @@
                   :SC2APIProtocol.common$Size2DI/y}}
   (dom/div
    (if editting
-     (dom/div (dom/button #js {:onClick
+     (dom/div (ui-button #js {:onClick
                                #(prim/transact! this `[(abort-resolution ~{:id id})])}
                           "Abort resolution")
-              (dom/button #js {:onClick
+              (ui-button #js {:onClick
                                #(prim/transact! this `[(submit-resolution ~{:id id
                                                                             :diff (fs/dirty-fields (prim/props this) true)})])}
                           "Save resolution"))
-     (dom/button #js {:onClick #(prim/transact! this `[(edit-resolution ~{:id id})])}
+     (ui-button #js {:onClick #(prim/transact! this `[(edit-resolution ~{:id id})])}
                  "Edit resolution"))
    (if editting
      (dom/div
@@ -747,20 +748,20 @@
                   :SC2APIProtocol.sc2api$InterfaceOptions/render}}
   (dom/div (if editting
              (dom/div
-              (dom/button #js {:onClick
+              (ui-button #js {:onClick
                                (fn [] (prim/transact!
                                        this
                                        `[(abort-interface-options
                                           ~{:id id})]))}
                           "Abort raw/score")
-              (dom/button #js {:onClick
+              (ui-button #js {:onClick
                                (fn [] (prim/transact!
                                        this
                                        `[(submit-interface-options
                                           ~{:id id
                                             :diff (fs/dirty-fields (prim/props this) true)})]))}
                           "Save raw/score"))
-             (dom/button #js {:onClick (fn [] (prim/transact! this `[(edit-interface-options ~{:id id})]))}
+             (ui-button #js {:onClick (fn [] (prim/transact! this `[(edit-interface-options ~{:id id})]))}
                          "Edit raw/score"))
            (if editting
              (dom/div
@@ -860,18 +861,18 @@
    :form-fields #{:run-config/step-size :run-config/run-size
                   :run-config/restart-on-episode-end}}
   (dom/div
-   (dom/button #js {:onClick #(make-savepoint)}
+   (ui-button #js {:onClick #(make-savepoint)}
                (str "Set the time-travel savepoint at " game-loop))
    (when savepoint-at
-     (dom/button #js {:onClick #(load-savepoint)}
+     (ui-button #js {:onClick #(load-savepoint)}
                  (str "Load savepoint at game-loop " savepoint-at)))
    (when editting
      (dom/div
-              (dom/button #js {:onClick #(prim/transact!
+              (ui-button #js {:onClick #(prim/transact!
                                           this
                                           `[(abort-run-config ~{:id id})])}
                           "Abort")
-              (dom/button #js {:onClick #(prim/transact!
+              (ui-button #js {:onClick #(prim/transact!
                                           this
                                           `[(submit-run-config
                                              ~{:id id
@@ -898,7 +899,7 @@
                         {:type "checkbox"
                          :checked restart-on-episode-end
                          :style #js {:width "100px"}}))
-     (dom/button #js {:onClick (fn [_] (prim/transact! this `[(edit-run-config ~{:id id})]))}
+     (ui-button #js {:onClick (fn [_] (prim/transact! this `[(edit-run-config ~{:id id})]))}
                  "Adjust run settings"))
    (ui-timeline runs
                 run-size
@@ -986,7 +987,9 @@
            :process/savepoint-at
            :db/id]
    :initLocalState (fn [] {:selected-minimap-layer-path [:render-data :minimap]
-                           :selected-render-layer-path [:render-data :map]})
+                           :selected-render-layer-path [:render-data :map]
+                           :render-size {:x 84 :y 84}
+                           :render-size-minimap {:x 84 :y 84}})
    :componentDidUpdate (fn [_ _]
                          (let [{:keys [draw-size
                                        draw-size-minimap
@@ -1014,10 +1017,10 @@
                           (prim/set-state!
                            this
                            (merge (prim/get-state this)
-                                  {:draw-size {:x (* 2 (:x render-size))
-                                               :y (* 2 (:y render-size))}
-                                   :draw-size-minimap {:x (* 2 (:x minimap-size))
-                                                       :y (* 2 (:y minimap-size))}}))
+                                  (when render-size {:draw-size {:x (* 2 (:x render-size))
+                                                                 :y (* 2 (:y render-size))}
+                                                     :draw-size-minimap {:x (* 2 (:x minimap-size))
+                                                                         :y (* 2 (:y minimap-size))}} {})))
                           (ui-draw-sizes this (prim/get-state this) render-size minimap-size)
                           (render-screen this
                                          (or draw-size render-size)
@@ -1039,7 +1042,7 @@
         minimap-size (get-in latest-observation [:render-data :minimap :size])
         game-loop (:game-loop latest-observation)]
     (dom/div
-     (dom/button #js {:style #js {"float" "right"}
+     (ui-button #js {:style #js {"float" "right"}
                       :onClick #(close-connection this port)} "Close process")
      (ui-available-actions
       (:abilities latest-observation)
@@ -1064,12 +1067,12 @@
                       :process/load-savepoint #(prim/transact!
                                                 this
                                                 `[(load-savepoint ~{:port port})])}))
-     (dom/button
+     (ui-button
       #js {:onClick
            (fn [e]
              (paste-first-element
               (str '(execute-plans))))} "Add inactive run")
-     (dom/button
+     (ui-button
       #js {:onClick
            (fn [e]
              (paste-first-element
@@ -1082,7 +1085,7 @@
                              :whenever-goals-succeed
                              (add-plan (attack :at-location :enemy-base)))
                      ))))} "Add 5rax Marine build")
-     (dom/button
+     (ui-button
       #js {:onClick
            (fn [e]
              (paste-first-element
@@ -1106,7 +1109,6 @@
      (ui-game-info port runs camera food-used food-cap minerals vespene)
      (ui-canvas this local-state port draw-size-minimap draw-size render-size
                 minimap-size selected-ability selected-minimap-layer-path selected-render-layer-path x y))))
-
 
 (def ui-process (prim/factory Process {:keyfn :db/id}))
 
@@ -1141,13 +1143,7 @@
                             :value absolute-path}
                        file-name))
          available-maps))
-   (when (seq game-config) (ui-game-config game-config))
-   #_(dom/h4 "Commands will be executed on:"
-           (dom/select
-            #js {:value 5000
-                 :onChange (fn [e] (pri "implement"))}
-            (map (fn [{:keys [process/port]}] (dom/option #js {:key port} port))
-                 processes)))))
+   (when (seq game-config) (ui-game-config game-config))))
 
 (def ui-process-starter (prim/factory ProcessStarter))
 
@@ -1155,8 +1151,7 @@
   {:query [{:root/processes (prim/get-query Process)}
            {:root/process-starter (prim/get-query ProcessStarter)}
            :root/starcraft-static-data]}
-  (dom/div #js {:style #js {"margin" 10
-                            "marginLeft" 65}}
+  (ui-paper {:style {:margin 10}}
            (when (empty? processes)
              (dom/h3 "There are no starcraft processes running yet, they will start automatically when you run a code cell. (play button or shortcut ctrl-enter)"))
            (when (and (not (empty? process-starter)) (not (seq processes)))
@@ -1259,44 +1254,47 @@
   (reset! app (fc/mount @app Root "sc-viewer")))
 
 (defn reset-app! []
-  (reset! app (fc/new-fulcro-client
-               :networking {:remote
-                            (fw/make-websocket-networking
-                             {:host (case :local-staging
-                                      :local "0.0.0.0:3446"
-                                      :local-staging "192.168.1.94:3446"
-                                      :remote-staging "cljsc.org"
-                                      (pri "no ip for env"))
-                              :push-handler (fn [m]
-                                              (push-received @app m))
-                              :transit-handlers {:read (merge {"literal-byte-string" (fn [it] it)}
-                                                              datascript.transit/read-handlers)}
-                              })}
-               :started-callback (fn [app]
-                                   (js/setTimeout #(do (load app ::model/processes Process
-                                                             {:target [:root/processes]
-                                                              :marker false})
-                                                       (load app ::model/process-starter ProcessStarter
-                                                             {:target [:root/process-starter]
-                                                              :marker false})
-                                                       (load app :root/starcraft-static-data Root
-                                                             {:marker false
-                                                              :post-mutation `make-conn}))
-                                                  5000)))))
+  (reset!
+   app
+   (fc/new-fulcro-client
+    :networking {:remote
+                 (fw/make-websocket-networking
+                  {:host (case :remote-staging
+                           :local "0.0.0.0:3446"
+                           :local-staging "192.168.1.94:3446"
+                           :remote-staging "cljsc.org"
+                           (pri "no ip for env"))
+                   :push-handler (fn [m]
+                                   (push-received @app m))
+                   :transit-handlers {:read (merge {"literal-byte-string" (fn [it] it)}
+                                                   datascript.transit/read-handlers)}
+                   })}
+    :started-callback (fn [app]
+                        (do (load app ::model/processes Process
+                                  {:target [:root/processes]
+                                   :marker false})
+                            (load app ::model/process-starter ProcessStarter
+                                  {:target [:root/process-starter]
+                                   :marker false})
+                            (load app :root/starcraft-static-data Root
+                                  {:marker false
+                                   :post-mutation `make-conn}))))))
 
 (defn init! []
+  (println "init")
   (when-let [el (aget (.querySelectorAll js/document "#sc-viewer") 0)]
     (.remove el))
   (reset-app!)
   (let [el (js/document.createElement "div")
-        _ (oset! el "id" "sc-viewer")]  (.prepend (gdom/getElement "notebook") el))
+        _ (oset! el "id" "sc-viewer")]  (.prepend (gdom/getElement "notebook-container") el))
   (mount))
+
 
 (defn ^:dev/after-load on-js-reload []
   (when-let [el (aget (.querySelectorAll js/document "#sc-viewer") 0)]
     (.remove el))
   (let [el (js/document.createElement "div")
-        _ (oset! el "id" "sc-viewer")]  (.prepend (gdom/getElement "notebook") el))
+        _ (oset! el "id" "sc-viewer")]  (.prepend (gdom/getElement "notebook-container") el))
   (go-loop [stopped (<! (:ch-recv @(:channel-socket (:remote (:networking @app)))))]
     (reset-app!)
     (mount))

@@ -1,11 +1,12 @@
 (ns cljsc2.cljs.core
-  (:require cljsjs.d3
-            ["d3" :as d3]
-            ["./contentscript/imageutil.js" :as iutil]
-            [cognitect.transit :as transit]
-            [cljsc2.cljs.colors :refer [discrete-color-palette
-                                        hot-palette
-                                        player-absolute-colors]]))
+  (:require
+   cljsjs.d3
+   ["d3" :as d3]
+   ["./contentscript/imageutil.js" :as iutil]
+   [cognitect.transit :as transit]
+   [cljsc2.cljs.colors :refer [discrete-color-palette
+                               hot-palette
+                               player-absolute-colors]]))
 
 (enable-console-print!)
 
@@ -34,11 +35,11 @@
   {:unit-density-aa (doto (d3.scaleLinear)
                       (.domain #js [0 256])
                       (.range hot-palette))
-   :selected (doto (d3.scaleOrdinal)
+   :selected (doto (d3/scaleOrdinal)
                (.domain #js [0 1])
                (.range #js ["rgba(0,0,0,0)"
                             "rgba(20,200,20,1)"]))
-   :player-relative (doto (d3.scaleOrdinal)
+   :player-relative (doto (d3/scaleOrdinal)
                       (.domain (clj->js (range 1 6)))
                       (.range #js ["rgba(0,0,0,1)"
                                    "rgba(0,142,0, 1)"
@@ -46,37 +47,37 @@
                                    "rgba(129, 166, 196, 1)"
                                    "rgba(113,25,34, 1)"
                                    ]))
-   :unit-type (doto (d3.scaleOrdinal)
+   :unit-type (doto (d3/scaleOrdinal)
                 (.domain (clj->js (range 0 1851)))
                 (.range discrete-color-palette))
-   :unit-energy (doto (d3.scaleLinear)
+   :unit-energy (doto (d3/scaleLinear)
                   (.domain #js [0 1000])
                   (.range hot-palette))
-   :unit-density (doto (d3.scaleLinear)
+   :unit-density (doto (d3/scaleLinear)
                    (.domain #js [0 16])
                    (.range hot-palette))
-   :player-id (doto (d3.scaleOrdinal)
+   :player-id (doto (d3/scaleOrdinal)
                 (.domain (clj->js (range 1 17)))
                 (.range player-absolute-colors))
-   :visibility-map (doto (d3.scaleOrdinal)
+   :visibility-map (doto (d3/scaleOrdinal)
                      (.domain (clj->js (range 0 4)))
                      (.range #js ["rgba(0,0,0,1)"
                                   "rgba(255,255,255, 0.25)"
                                   "rgba(255,255,255, 0.6)"]))
-   :power (doto (d3.scaleLinear)
+   :power (doto (d3/scaleLinear)
             (.domain #js [0 1])
             (.range  #js ["rgba(0,0,0,0)" "blue"]))
-   :unit-hit-points (doto (d3.scaleLinear)
+   :unit-hit-points (doto (d3/scaleLinear)
                       (.domain #js [0 1600])
                       (.range hot-palette))
-   :height-map (doto (d3.scaleLinear)
+   :height-map (doto (d3/scaleLinear)
                  (.domain #js [0 255])
                  (.ticks 400)
                  (.range #js ["rgba(0,0,0,0)" "brown"]))
-   :unit-shield (doto (d3.scaleLinear)
+   :unit-shield (doto (d3/scaleLinear)
                   (.domain #js [0 1000])
                   (.range hot-palette))
-   :creep (doto (d3.scaleLinear)
+   :creep (doto (d3/scaleLinear)
             (.domain #js [0 1])
             (.range #js ["rgba(0,0,0,0)" "purple"]))})
 
@@ -112,7 +113,7 @@
           to-arr)))))
 
 (def uint8->binary iutil/uint8toBinaryString)
-
+(+ 1 1)
 (def binary->ab32 iutil/str2ab32)
 
 (defn render-canvas [canvas feature-layer-name {:keys [data bits-per-pixel size]}

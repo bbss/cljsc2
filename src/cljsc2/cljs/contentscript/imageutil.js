@@ -22,10 +22,9 @@ module.exports = {
 
            return result;
   },
-  lpad: function(obj, str, num) {
+  lpad: function lpad(obj, str, num) {
            return repeat(str, num - obj.length) + obj;
   },
-
   uint8toBinaryString: function (uint8) {
            var string = '';
            Array.prototype.forEach.call(uint8, function (element) {
