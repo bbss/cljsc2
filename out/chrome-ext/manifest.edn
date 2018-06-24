@@ -6,10 +6,10 @@
  :shadow/outputs
  {:inject
   {:output-type :chrome/single-file
-   :init-fn cljsc2.cljs.contentscript.core/init!}
+   :init-fn cljsc2.cljs.core/init!}
 
   :content-script
-  {:init-fn cljsc2.cljs.contentscript.core/init!
+  {:init-fn cljsc2.cljs.core/init!
    :chrome/options {:matches ["http://192.168.1.94:*/*", "https://cljsc.org:*/*", "https://www.cljsc.org:*/*"]
                     :run-at "document_idle"}}}
 

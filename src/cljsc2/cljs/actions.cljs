@@ -2,7 +2,6 @@
   (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [react :as react]
             [clojure.core.async :refer [<! >!]]
-            [cljsc2.cljs.core :refer [render-canvas feature-layer-draw-descriptions]]
             [cljsc2.cljc.model :as model]
             [cljsc2.cljs.material_ui :refer [ui-button]]
             [cljs.spec.alpha :as spec]

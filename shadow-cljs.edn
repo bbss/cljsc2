@@ -1,5 +1,6 @@
 {:source-paths ["src"]
  :dependencies [[org.clojure/clojurescript "1.9.946"]
+                [org.clojure/test.check "0.9.0"]
                 [fulcrologic/fulcro "2.5.8"]
                 [org.clojure/core.async  "0.4.474"]
                 [com.cognitect/transit-cljs "0.8.243"]
@@ -7,6 +8,12 @@
                 [binaryage/chromex "0.6.0"]
                 [binaryage/oops "0.6.2"]
                 [datascript "0.16.2"]
-                [datascript-transit "0.2.2"]]
+                [datascript-transit "0.2.2"]
+                [cider/cider-nrepl "0.18.0-SNAPSHOT"]]
  :builds {:chrome-ext {:target :chrome-extension
-                       :extension-dir "out/chrome-ext"}}}
+                       :extension-dir "out/chrome-ext"}
+          :dev {:target :browser
+                :output-dir "/root/anaconda2/lib/python2.7/site-packages/notebook/static/notebook/js/compiled/out"
+                :asset-path "/static/notebook/js/compiled/out"
+                :modules {:cljsc2 {:entries [cljsc2.cljs.mount]}}
+                :compiler-options {:optimizations :simple}}}}

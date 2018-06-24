@@ -18,7 +18,7 @@
                  [aleph "0.4.4"]
                  [im.chit/lucid.mind "1.3.13"]
                  [instaparse "1.4.7"]
-                 [org.clojure/test.check "0.10.0-alpha2"]
+                 [org.clojure/test.check "0.10.0-alpha3"]
                  [hawk "0.2.11"]
                  [im.chit/hara.string.case "2.5.10"]
                  [im.chit/hara.zip "2.5.10"]
@@ -42,8 +42,7 @@
                  [ring/ring-defaults "0.3.1"]
                  [compojure "1.5.1"]
                  [clojupyter "0.2.1-SNAPSHOT" :exclusions [org.clojure/tools.reader]]
-                 [lambda-ml "0.1.1"]
-                 [com.stuartsierra/stacktrace.raw "0.1.0-SNAPSHOT"]]
+                 [lambda-ml "0.1.1"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]
