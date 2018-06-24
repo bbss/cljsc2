@@ -15,22 +15,6 @@
             [fulcro.client.dom :as dom]
             [fulcro.client.primitives :as prim :refer [defsc]]))
 
-(def feature-layer-types
-  [:creep
-   :height-map
-   :unit-shield
-   :unit-density-aa
-   :player-relative
-   :unit-type
-   :selected
-   :unit-energy
-   :unit-density
-   :player-id
-   :visibility-map
-   :power
-   :unit-hit-points
-   ])
-
 (def feature-layer-draw-descriptions
   {:unit-density-aa (doto (d3.scaleLinear)
                       (.domain #js [0 256])
@@ -80,7 +64,6 @@
    :creep (doto (d3/scaleLinear)
             (.domain #js [0 1])
             (.range #js ["rgba(0,0,0,0)" "purple"]))})
-
 
 (declare msg)
 
@@ -217,15 +200,21 @@
       (dom/option #js {:key layer-name
                        :value layer-path} (str layer-name))))
    (ui-draw-sizes this local-state render-size minimap-size)
+   (println draw-size draw-size-minimap minimap-size render-size)
    (dom/canvas
     #js {:ref "process-feed-minimap"
-         :width (or (:x draw-size-minimap) (:x minimap-size))
-         :height (or (:y draw-size-minimap) (:y minimap-size))
-         :onMouseUp (minimap-mouse-up this port (or draw-size-minimap minimap-size) minimap-size)})
+         :width (or (:x draw-size-minimap)
+                    (* (:x minimap-size) 2))
+         :height (or (:y draw-size-minimap)
+                     (* (:y minimap-size) 2))
+         :onMouseUp (minimap-mouse-up this port (or draw-size-minimap (-> minimap-size
+                                                                          (update :x #(* 2 %))
+                                                                          (update :y #(* 2 %))))
+                                      minimap-size)})
    (dom/canvas
     #js {:ref "process-feed"
-         :width (or (:x draw-size) (:x render-size))
-         :height (or (:y draw-size) (:y render-size))
+         :width (or (:x draw-size) (* (:x render-size) 2))
+         :height (or (:y draw-size) (* (:y render-size) 2))
          :onMouseDown (fn [evt]
                         (let [coords (event->dom-coords
                                       evt
@@ -235,5 +224,9 @@
                            (merge (prim/get-state this)
                                   {:selection {:start coords}}))))
          :onMouseMove (screen-mouse-move this)
-         :onMouseUp (screen-mouse-up this port (or draw-size render-size) render-size selected-ability)})
+         :onMouseUp (screen-mouse-up this port (or draw-size (-> render-size
+                                                                 (update :x #(* 2 %))
+                                                                 (update :y #(* 2 %))))
+                                     render-size
+                                     selected-ability)})
    (ui-camera-move-arrows this port x y)))

@@ -47,8 +47,7 @@
            :db/id]
    :initLocalState (fn [] {:selected-minimap-layer-path [:render-data :minimap]
                            :selected-render-layer-path [:render-data :map]
-                           :render-size {:x 168 :y 168}
-                           :render-size-minimap {:x 84 :y 84}})
+                           })
    :componentDidUpdate (fn [_ _]
                          (let [{:keys [draw-size
                                        draw-size-minimap
@@ -59,10 +58,14 @@
                                render-size (get-in (latest-observation-from-runs runs) [:render-data :map :size])
                                minimap-size (get-in (latest-observation-from-runs runs) [:render-data :minimap :size])]
                            (render-screen this
-                                          (or draw-size render-size)
+                                          (or draw-size (-> render-size
+                                                            (update :x #(* 2 %))
+                                                            (update :y #(* 2 %))))
                                           selected-render-layer-path)
                            (render-minimap this
-                                           (or draw-size-minimap minimap-size)
+                                           (or draw-size-minimap (->  minimap-size
+                                                                     (update :x #(* 2 %))
+                                                                     (update :y #(* 2 %))))
                                            selected-minimap-layer-path)))
    :componentDidMount (fn []
                         (let [{:keys [draw-size
@@ -71,8 +74,12 @@
                                       selected-minimap-layer-path]}
                               (prim/get-state this)
                               runs (:process/runs (prim/props this))
-                              render-size (get-in (latest-observation-from-runs runs) [:render-data :map :size])
-                              minimap-size (get-in (latest-observation-from-runs runs) [:render-data :minimap :size])]
+                              render-size (-> (get-in (latest-observation-from-runs runs) [:render-data :map :size])
+                                              (update :x #(* 2 %))
+                                              (update :y #(* 2 %)))
+                              minimap-size (-> (get-in (latest-observation-from-runs runs) [:render-data :minimap :size])
+                                               (update :x #(* 2 %))
+                                               (update :y #(* 2 %)))]
                           (prim/set-state!
                            this
                            (merge (prim/get-state this)
