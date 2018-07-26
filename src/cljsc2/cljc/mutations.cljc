@@ -3,7 +3,9 @@
             [cljsc2.cljs.ui.player_setup :refer [PlayerSetup]]
             [fulcro.client.mutations :as m :refer [defmutation]]
             [cljsc2.cljs.ui.resolution :refer [Resolution InterfaceOptions]]
+            [cljsc2.cljs.guide :refer [Lesson]]
             [fulcro.ui.form-state :as fs]
+            [fulcro.client.primitives :as prim]
             [datascript.core :as ds]))
 
 (defmutation edit-run-config [{:keys [id]}]
@@ -60,7 +62,6 @@
                        (assoc-in [:player-setup/by-id id :ui/editting] false)
                        (fs/entity->pristine* [:player-setup/by-id id])))))
   (remote [env] true))
-
 
 (defmutation edit-resolution [{:keys [id]}]
   (action [{:keys [state]}]
@@ -139,3 +140,35 @@
 (defmutation update-player-setup [{:keys [id field value]}]
   (action [{:keys [state]}]
           (swap! state assoc-in [:player-setup/by-id id field] value)))
+
+(defmutation step-to [{:keys [to]}]
+  (value [{:keys [state]}]
+         (swap! state assoc-in (conj (:root/guide @state) :ui/step) to)))
+
+(defmutation step-to [{:keys [to]}]
+  (value [{:keys [state]}]
+         (swap! state assoc-in (conj (:root/guide @state) :ui/step) to)))
+
+(defmutation add-new-step [{:keys [at-index wrap-dom-node]}]
+  (action [{:keys [reconciler state]}]
+          (let [id (prim/tempid)]
+            (prim/merge-component!
+             reconciler
+             cljsc2.cljs.guide/Step
+             (fs/add-form-config cljsc2.cljs.guide/Step {:db/id id
+                                                         :step/explanation ""
+                                                         :step/title ""
+                                                         :step/init-value ""
+                                                         :step/wrap-dom-node wrap-dom-node}))
+            (swap! state update-in [:lesson/by-id 1 :lesson/steps]
+                   (fn [steps]
+                     (vec (concat (subvec steps 0 at-index)
+                                  [[:step/by-id id]]
+                                  (subvec steps at-index))))))))
+
+(defmutation update-step-playback [{:keys [step-id step]}]
+  (action [{:keys [reconciler]}]
+          (prim/merge-component!
+           reconciler
+           cljsc2.cljs.guide/Step
+           step)))

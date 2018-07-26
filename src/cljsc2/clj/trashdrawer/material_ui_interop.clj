@@ -7,14 +7,16 @@
       (clojure.string/lower-case)
       ))
 
-(set! *print-length* 500)
+(set! *print-length* 5000)
 
-(let [all-material-names (->> (file-seq (clojure.java.io/file "node_modules/@material-ui"))
+(let [all-material-names (->> (file-seq (clojure.java.io/file "node_modules/@material-ui/core"))
+                              (filter (fn [it] (.isDirectory it)))
                               (map (fn [it] (.getName it)))
                               (filter (fn [it] ((into #{} "ABCDEFGHIJKLMNOPQRSTUVWXYZ") (first it))))
-                              (filter (fn [it] (clojure.string/ends-with? it ".js")))
-                              (map (fn [it] (subs it 0 (- (count it) 3))))
-                              set)]
+                              #_(filter (fn [it] (clojure.string/ends-with? it ".js")))
+                              #_(map (fn [it] (subs it 0 (- (count it) 3))))
+                              set)
+      ]
   (spit "src/cljsc2/cljs/material_ui.cljs"
         (str `(~'ns cljsc2.cljs.material_ui (:require ~'[react :as react]
                                                       ~'[fulcro.client.dom :as dom]

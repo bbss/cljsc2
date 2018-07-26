@@ -1,4 +1,4 @@
-(ns cljsc2.cljs.material_ui (:require [react :as react] [fulcro.client.dom :as dom] ["@material-ui/core" :as mcore :refer [IconButton SnackbarContent Switch RootRef SwipeArea StepButton Tooltip StepIcon Typography InputAdornment Cancel RadioButtonChecked ListSubheader Button CssBaseline Popover StepConnector SvgIcon Checkbox Radio TablePagination ArrowDownward DialogTitle Chip CircularProgress MenuList Ripple Modal SwitchBase Paper ClickAwayListener Collapse CardContent KeyboardArrowRight Tab Grid ExpansionPanel ModalManager GridListTileBar Card GridList StepPositionIcon CheckCircle ListItemText BottomNavigationAction Step SelectInput TouchRipple ListItemAvatar KeyboardArrowLeft Hidden Slide NativeSelect Menu Icon Stepper Warning Tabs TableSortLabel MenuItem Divider StepLabel FormControlLabel ListItemIcon Input ArrowDropDown Textarea Badge CheckBoxOutlineBlank Dialog ListItemSecondaryAction IndeterminateCheckBox RadioButtonUnchecked Zoom TabScrollButton ExpansionPanelDetails CheckBox DialogContent Drawer DialogActions TableBody TableRow FormLabel Portal Toolbar List DialogContentText HiddenJs TabIndicator CardHeader Backdrop TableCell ExpansionPanelActions BottomNavigation AppBar ExpansionPanelSummary StepContent HiddenCss ButtonBase ScrollbarSize Snackbar SwipeableDrawer TablePaginationActions RadioGroup Table InputLabel Select TableHead GridListTile CardActions MobileStepper TextField ListItem MuiThemeProvider LinearProgress Grow TableFooter FormHelperText CardMedia FormControl Avatar FormGroup NativeSelectInput Fade]] [goog.object :as gobj]))
+(ns cljsc2.cljs.material_ui (:require [react :as react] [fulcro.client.dom :as dom] ["@material-ui/core" :as mcore :refer [IconButton SnackbarContent Switch RootRef StepButton Tooltip StepIcon Typography InputAdornment ListSubheader Button CssBaseline Popover StepConnector SvgIcon Checkbox Radio TablePagination DialogTitle Chip CircularProgress MenuList Modal Paper ClickAwayListener Collapse CardContent Tab Grid ExpansionPanel GridListTileBar Card GridList ListItemText BottomNavigationAction Step ListItemAvatar Hidden Slide NativeSelect Menu Icon Stepper Tabs TableSortLabel MenuItem Divider StepLabel FormControlLabel ListItemIcon Input Badge Dialog ListItemSecondaryAction Zoom ExpansionPanelDetails DialogContent Drawer DialogActions TableBody TableRow FormLabel Portal Toolbar List DialogContentText CardHeader Backdrop TableCell ExpansionPanelActions BottomNavigation AppBar ExpansionPanelSummary StepContent ButtonBase Snackbar SwipeableDrawer TablePaginationActions RadioGroup Table InputLabel Select TableHead GridListTile CardActions MobileStepper TextField ListItem LinearProgress Grow TableFooter FormHelperText CardMedia FormControl Avatar FormGroup Fade]] [goog.object :as gobj]))
 
 (def element-marker (-> (react/createElement "div" nil) (gobj/get "$$typeof")))
 
@@ -22,8 +22,6 @@
 
 (def ui-root-ref (create-element RootRef))
 
-(def ui-swipe-area (create-element SwipeArea))
-
 (def ui-step-button (create-element StepButton))
 
 (def ui-tooltip (create-element Tooltip))
@@ -33,10 +31,6 @@
 (def ui-typography (create-element Typography))
 
 (def ui-input-adornment (create-element InputAdornment))
-
-(def ui-cancel (create-element Cancel))
-
-(def ui-radio-button-checked (create-element RadioButtonChecked))
 
 (def ui-list-subheader (create-element ListSubheader))
 
@@ -56,8 +50,6 @@
 
 (def ui-table-pagination (create-element TablePagination))
 
-(def ui-arrow-downward (create-element ArrowDownward))
-
 (def ui-dialog-title (create-element DialogTitle))
 
 (def ui-chip (create-element Chip))
@@ -66,11 +58,7 @@
 
 (def ui-menu-list (create-element MenuList))
 
-(def ui-ripple (create-element Ripple))
-
 (def ui-modal (create-element Modal))
-
-(def ui-switch-base (create-element SwitchBase))
 
 (def ui-paper (create-element Paper))
 
@@ -80,15 +68,11 @@
 
 (def ui-card-content (create-element CardContent))
 
-(def ui-keyboard-arrow-right (create-element KeyboardArrowRight))
-
 (def ui-tab (create-element Tab))
 
 (def ui-grid (create-element Grid))
 
 (def ui-expansion-panel (create-element ExpansionPanel))
-
-(def ui-modal-manager (create-element ModalManager))
 
 (def ui-grid-list-tile-bar (create-element GridListTileBar))
 
@@ -96,23 +80,13 @@
 
 (def ui-grid-list (create-element GridList))
 
-(def ui-step-position-icon (create-element StepPositionIcon))
-
-(def ui-check-circle (create-element CheckCircle))
-
 (def ui-list-item-text (create-element ListItemText))
 
 (def ui-bottom-navigation-action (create-element BottomNavigationAction))
 
 (def ui-step (create-element Step))
 
-(def ui-select-input (create-element SelectInput))
-
-(def ui-touch-ripple (create-element TouchRipple))
-
 (def ui-list-item-avatar (create-element ListItemAvatar))
-
-(def ui-keyboard-arrow-left (create-element KeyboardArrowLeft))
 
 (def ui-hidden (create-element Hidden))
 
@@ -125,8 +99,6 @@
 (def ui-icon (create-element Icon))
 
 (def ui-stepper (create-element Stepper))
-
-(def ui-warning (create-element Warning))
 
 (def ui-tabs (create-element Tabs))
 
@@ -144,29 +116,15 @@
 
 (def ui-input (create-element Input))
 
-(def ui-arrow-drop-down (create-element ArrowDropDown))
-
-(def ui-textarea (create-element Textarea))
-
 (def ui-badge (create-element Badge))
-
-(def ui-check-box-outline-blank (create-element CheckBoxOutlineBlank))
 
 (def ui-dialog (create-element Dialog))
 
 (def ui-list-item-secondary-action (create-element ListItemSecondaryAction))
 
-(def ui-indeterminate-check-box (create-element IndeterminateCheckBox))
-
-(def ui-radio-button-unchecked (create-element RadioButtonUnchecked))
-
 (def ui-zoom (create-element Zoom))
 
-(def ui-tab-scroll-button (create-element TabScrollButton))
-
 (def ui-expansion-panel-details (create-element ExpansionPanelDetails))
-
-(def ui-check-box (create-element CheckBox))
 
 (def ui-dialog-content (create-element DialogContent))
 
@@ -188,10 +146,6 @@
 
 (def ui-dialog-content-text (create-element DialogContentText))
 
-(def ui-hidden-js (create-element HiddenJs))
-
-(def ui-tab-indicator (create-element TabIndicator))
-
 (def ui-card-header (create-element CardHeader))
 
 (def ui-backdrop (create-element Backdrop))
@@ -208,11 +162,7 @@
 
 (def ui-step-content (create-element StepContent))
 
-(def ui-hidden-css (create-element HiddenCss))
-
 (def ui-button-base (create-element ButtonBase))
-
-(def ui-scrollbar-size (create-element ScrollbarSize))
 
 (def ui-snackbar (create-element Snackbar))
 
@@ -240,8 +190,6 @@
 
 (def ui-list-item (create-element ListItem))
 
-(def ui-mui-theme-provider (create-element MuiThemeProvider))
-
 (def ui-linear-progress (create-element LinearProgress))
 
 (def ui-grow (create-element Grow))
@@ -257,7 +205,5 @@
 (def ui-avatar (create-element Avatar))
 
 (def ui-form-group (create-element FormGroup))
-
-(def ui-native-select-input (create-element NativeSelectInput))
 
 (def ui-fade (create-element Fade))

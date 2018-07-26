@@ -31,7 +31,8 @@
                                                        :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
 
                                             actions)))]
-    (update env :available-casters (fn [casters]
+    (update env :available-casters
+            (fn [casters]
                                      (clojure.set/difference casters
                                                              occupied-casters
                                                              ability-order-already-issued

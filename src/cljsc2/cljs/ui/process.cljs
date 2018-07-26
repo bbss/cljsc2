@@ -46,9 +46,8 @@
            :process/savepoint-at
            :db/id]
    :initLocalState (fn [] {:selected-minimap-layer-path [:render-data :minimap]
-                           :selected-render-layer-path [:render-data :map]
-                           })
-   :componentDidUpdate (fn [_ _]
+                           :selected-render-layer-path [:render-data :map]})
+   #_#_#_#_:componentDidUpdate (fn [_ _]
                          (let [{:keys [draw-size
                                        draw-size-minimap
                                        selected-render-layer-path
@@ -64,8 +63,8 @@
                                           selected-render-layer-path)
                            (render-minimap this
                                            (or draw-size-minimap (->  minimap-size
-                                                                     (update :x #(* 2 %))
-                                                                     (update :y #(* 2 %))))
+                                                                      (update :x #(* 2 %))
+                                                                      (update :y #(* 2 %))))
                                            selected-minimap-layer-path)))
    :componentDidMount (fn []
                         (let [{:keys [draw-size
@@ -109,7 +108,7 @@
         game-loop (:game-loop latest-observation)]
     (dom/div
      (ui-button #js {:style #js {"float" "right"}
-                      :onClick #(close-connection this port)} "Close process")
+                     :onClick #(close-connection this port)} "Close process")
      (ui-available-actions
       (:abilities latest-observation)
       knowledge-base
@@ -129,7 +128,7 @@
                       :process/make-savepoint #(prim/transact!
                                                 this
                                                 `[(cljsc2.cljc.mutations/make-savepoint ~{:port port
-                                                                    :game-loop game-loop})])
+                                                                                          :game-loop game-loop})])
                       :process/load-savepoint #(prim/transact!
                                                 this
                                                 `[(cljsc2.cljc.mutations/load-savepoint ~{:port port})])}))
@@ -173,7 +172,7 @@
                      (keep-gas-mined)
                      (camera-follow-army)))))} "Add marine/cyclones build")
      (ui-game-info port runs camera food-used food-cap minerals vespene)
-     (ui-canvas this local-state port draw-size-minimap draw-size render-size
+     #_(ui-canvas this local-state port draw-size-minimap draw-size render-size
                 minimap-size selected-ability selected-minimap-layer-path selected-render-layer-path x y ui-process))))
 
 (def ui-process (prim/factory Process {:keyfn :db/id}))

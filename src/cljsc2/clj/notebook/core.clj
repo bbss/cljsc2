@@ -64,7 +64,8 @@
                 (prim/integrate-ident
                  ident-path :append [:run/by-id run-id :run/observations])))
     (doseq [id (:any @(:connected-uids ws))]
-      (push ws id :add-observation {:run-id run-id :ident-path ident-path :observation observation}))))
+      (push ws id :add-observation {:run-id run-id :ident-path ident-path
+                                    :observation observation}))))
 
 (defn add-latest-response [server-db port response]
   (let [ident-path [:process/by-id port]]
@@ -401,7 +402,9 @@
 
 (def dir-watcher
   (do
-    (hawk/watch! [{:paths [(str (System/getenv "XDG_RUNTIME_DIR") "/jupyter")]
+    (hawk/watch! [{:paths [(if (System/getenv "XDG_RUNTIME_DIR")
+                             (str (System/getenv "XDG_RUNTIME_DIR") "/jupyter")
+                             "/Users/baruchberger/Library/Jupyter/runtime")]
                    :handler (fn [_ {:keys [file kind]}]
                               (let [path (.getPath file)
                                     name (.getName file)]
@@ -566,7 +569,7 @@
                         (get-in @server-db [:run-config/by-id id])
                         (get-in @server-db [:run-config/by-id id]))))
 
-(defmutation cljsc2.cljs.contentscript.core/send-request
+(defmutation cljsc2.cljc.mutations/send-request
   [{:keys [port request]}]
   (action [env]
           (let [conn (get-conn server-db port)
@@ -582,7 +585,7 @@
                              (:observation (:observation (cljsc2.clj.core/request-observation conn))))
             {})))
 
-(defmutation cljsc2.cljs.contentscript.core/make-savepoint
+(defmutation cljsc2.cljc.mutations/make-savepoint
   [{:keys [game-loop port]}]
   (action [env]
           (let [_ (timbre/debug port game-loop)
@@ -595,7 +598,7 @@
                                    game-loop))))
             {})))
 
-(defmutation cljsc2.cljs.contentscript.core/load-savepoint
+(defmutation cljsc2.cljc.mutations/load-savepoint
   [{:keys [port]}]
   (action [env]
           (let [conn (get-conn server-db port)
@@ -606,7 +609,7 @@
                              (:observation (:observation (cljsc2.clj.core/request-observation conn))))
             {})))
 
-(defmutation cljsc2.cljs.contentscript.core/send-action
+(defmutation cljsc2.cljc.mutations/send-action
   [{:keys [action port]}]
   (action [env]
           (let [_ (timbre/debug port action)
@@ -620,12 +623,12 @@
                   (add-observation server-db port run-id
                                    (:observation (:observation (cljsc2.clj.core/request-observation conn)))))))))
 
-(defmutation cljsc2.cljs.contentscript.core/update-map [{:keys [id path]}]
+(defmutation cljsc2.cljc.mutations/update-map [{:keys [id path]}]
   (action [env]
           (do (swap! server-db assoc-in [:map-config/by-id id :map-config/path] path)
               {})))
 
-(defmutation cljsc2.cljs.contentscript.core/submit-run-config [params]
+(defmutation cljsc2.cljc.mutations/submit-run-config [params]
   (action [env]
           (do
             (swap! server-db
@@ -640,7 +643,7 @@
                              (:diff params))))
             {})))
 
-(defmutation cljsc2.cljs.contentscript.core/submit-player-setup [params]
+(defmutation cljsc2.cljc.mutations/submit-player-setup [params]
   (action [env]
           (do
             (swap! server-db
@@ -655,7 +658,7 @@
                              (:diff params))))
             {})))
 
-(defmutation cljsc2.cljs.contentscript.core/submit-resolution [params]
+(defmutation cljsc2.cljc.mutations/submit-resolution [params]
   (action [env]
           (do
             (swap! server-db
@@ -670,7 +673,7 @@
                              (:diff params))))
             {})))
 
-(defmutation cljsc2.cljs.contentscript.core/submit-interface-options [params]
+(defmutation cljsc2.cljc.mutations/submit-interface-options [params]
   (action [env]
           (do
             (swap! server-db

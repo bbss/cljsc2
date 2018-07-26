@@ -200,7 +200,6 @@
       (dom/option #js {:key layer-name
                        :value layer-path} (str layer-name))))
    (ui-draw-sizes this local-state render-size minimap-size)
-   (println draw-size draw-size-minimap minimap-size render-size)
    (dom/canvas
     #js {:ref "process-feed-minimap"
          :width (or (:x draw-size-minimap)
