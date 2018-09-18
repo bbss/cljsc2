@@ -8,12 +8,12 @@
                                     ui-stepper ui-step ui-step-label ui-step-content
                                     ui-portal create-element]]
    [cljsc2.cljs.parinfer_wrap :refer [parinferize!]]
-   ["@material-ui/icons" :refer [PlayArrow]]
+
    [fulcro.client.dom :as dom]
    [fulcro.client.primitives :as prim :refer [defsc]]
    [goog.dom :as gdom]))
 
-(def ui-play-arrow (create-element PlayArrow))
+#_(def ui-play-arrow (create-element PlayArrow))
 
 (defsc JupyterCell [this {:keys [db/id cell/jupyter-node]} {:keys [onClick]}]
   {:query [:cell/jupyter-node :db/id]
@@ -27,7 +27,7 @@
                           :enterDelay 300}
                          (ui-icon-button
                           {:onClick onClick}
-                          (ui-play-arrow)))))
+                          "play"))))
 
 (def ui-jupyter-cell (prim/factory JupyterCell {:keyfn :db/id}))
 
