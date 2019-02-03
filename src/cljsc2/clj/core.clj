@@ -213,6 +213,16 @@
 (defn quick-load [conn]
   (send-request-and-get-response-message
    conn #:SC2APIProtocol.sc2api$RequestQuickLoad{:quick-load {}}))
+(defn save-replay [conn path]
+  "Saves a replay into the path passed, overwriting if there is a replay there."
+  (.writeTo (:data
+              (:save-replay
+                (send-request-and-get-response-message
+                  conn
+                  #:SC2APIProtocol.sc2api$RequestSaveReplay{:save-replay {}})))
+            (clojure.java.io/make-output-stream
+              (java.io.File. path)
+              {:append false})))
 
 (defn load-mineral-game
   ([connection]
