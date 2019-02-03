@@ -9,6 +9,10 @@ pom.xml
 .lein-deps-sum
 .lein-repl-history
 .lein-plugins/
+.lein-env
 .repl
 .nrepl-port
 .DS_Store
+.idea/
+cljsc2.iml
+.log

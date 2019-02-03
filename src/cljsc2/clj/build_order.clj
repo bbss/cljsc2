@@ -10,7 +10,6 @@
   (:use
    cljsc2.clj.core
    cljsc2.clj.rules
-   cljsc2.clj.notebook.core
    cljsc2.clj.game-parsing))
 
 (defn run-query [env assoc-key {:keys [in query find transform-result]
@@ -26,17 +25,17 @@
 
 (defn remove-occupied-casters [{:keys [actions ability-order-already-issued non-mining-scvs] :as env} _]
   (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
-                                                       :SC2APIProtocol.raw$ActionRaw/action
-                                                       :SC2APIProtocol.raw$ActionRaw/unit-command
-                                                       :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
+                                                        :SC2APIProtocol.raw$ActionRaw/action
+                                                        :SC2APIProtocol.raw$ActionRaw/unit-command
+                                                        :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
 
                                             actions)))]
     (update env :available-casters
             (fn [casters]
-                                     (clojure.set/difference casters
-                                                             occupied-casters
-                                                             ability-order-already-issued
-                                                             non-mining-scvs)))))
+              (clojure.set/difference casters
+                                      occupied-casters
+                                      ability-order-already-issued
+                                      non-mining-scvs)))))
 
 (defn update-build-actions [{:keys [ability-id connection do-times available-casters
                                     available-building-positions footprint-radius
@@ -183,19 +182,21 @@
             (swap!
              planner
              (fn [p]
-               {:active-plans (concat (->> active-plans
-                                    (filter
-                                     (fn [{:keys [plan initialized-goals]}]
-                                       (not (every? true?
-                                                    (map (fn [goal]
-                                                           (goal {:next-knowledge latest-knowledge
-                                                                  :env env}))
-                                                         initialized-goals)))))
-                                    (remove (fn [{:keys [plan initialized-goals]}]
-                                              (and (every? true? (map (fn [goal] (goal latest-knowledge))
-                                                                      initialized-goals))
-                                                   (:remove-after-goal-attained plan)))))
-                                      (or (initialize-active-plans (:new-plans @planner) latest-knowledge) []))
+               {:active-plans
+                     (concat
+                       (->> active-plans
+                            (filter
+                              (fn [{:keys [plan initialized-goals]}]
+                                (not (every? true?
+                                             (map (fn [goal]
+                                                    (goal {:next-knowledge latest-knowledge
+                                                           :env env}))
+                                                  initialized-goals)))))
+                            (remove (fn [{:keys [plan initialized-goals]}]
+                                      (and (every? true? (map (fn [goal] (goal latest-knowledge))
+                                                              initialized-goals))
+                                           (:remove-after-goal-attained plan)))))
+                       (or (initialize-active-plans (:new-plans @planner) latest-knowledge) []))
                 :env (-> env
                          (dissoc :knowledge)
                          (dissoc :actions)
@@ -236,7 +237,11 @@
              [295 296]
              unit-has-order-rule)))
 
-(defn execute-plans [& plans]
+;; TODO: This is just a stub, the actual function is yet to be written.
+(defn run-sc [agent-fn run-end-fn connection {:keys [init-fn run-for-steps ran-for-steps game-loop run-ended? game-ended?]}]
+  (comment "Do nothing yet, just a placeholder."))
+
+(defn execute-plans [connection & plans]
   (let [connection  (or connection (first (filter #(= manifold.stream.SplicedStream (type %)) plans)))
         contained-planner (first (filter #(instance? clojure.lang.Atom %) plans))
         planner (if contained-planner
@@ -257,6 +262,39 @@
       (fn [_] (finished? planner))
       connection
       {}) planner]))
+
+; The old run-sc function for rewrite reference.
+;(defn run-sc [agent-fn run-end-fn connection {:keys [init-fn run-for-steps ran-for-steps game-loop
+;                                                     run-ended? game-ended?]}]
+;  (try
+;    (let [port (cljsc2.clj.core/get-port connection)
+;          run (add-run server-db
+;                       port)
+;          {:keys [run-config/step-size
+;                  run-config/restart-on-episode-end
+;                  run-config/run-size] :as run-config} (get-in @server-db (:run/run-config run))]
+;      (let [run-result
+;            (cljsc2.clj.core/do-sc2
+;              connection
+;              agent-fn
+;              {:stepsize step-size
+;               :run-until-fn (cljsc2.clj.core/run-for (or run-for-steps run-size))
+;               :run-for-steps run-for-steps
+;               :additional-listening-fns [(fn [observation connection]
+;                                            (add-observation server-db port (:db/id run) observation))]
+;               :run-started-cb (run-started server-db (:db/id run) port)
+;               :run-ended-cb (run-ended server-db (:db/id run) port)})
+;            {:keys [run-for-steps ran-for-steps game-loop run-ended? game-ended?] :as run-info} (nth run-result 2)]
+;        (timbre/debug run-for-steps ran-for-steps game-ended? run-ended? restart-on-episode-end)
+;        (if restart-on-episode-end
+;          (if (and game-ended? (not run-ended?))
+;            (concat [run-result] (do (make-ready server-db connection port)
+;                                     (run-sc agent-fn run-end-fn connection
+;                                             (assoc run-info :run-for-steps
+;                                                             (- (or run-for-steps run-size) ran-for-steps)))))
+;            [run-result])
+;          [run-result])))
+;    (catch Exception e (timbre/error e))))
 
 (defn execute-plans-fn [& plans]
   (fn [connection]
@@ -282,9 +320,9 @@
 
 (defn update-keep-gas-mined [{:keys [knowledge actions] :as env} _]
   (let [occupied-casters (set (flatten (map #(get-in % [:SC2APIProtocol.sc2api$Action/action-raw
-                                                       :SC2APIProtocol.raw$ActionRaw/action
-                                                       :SC2APIProtocol.raw$ActionRaw/unit-command
-                                                       :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
+                                                        :SC2APIProtocol.raw$ActionRaw/action
+                                                        :SC2APIProtocol.raw$ActionRaw/unit-command
+                                                        :SC2APIProtocol.raw$ActionRawUnitCommand/unit-tags])
 
                                            actions)))
         available-workers (clojure.set/difference (harvesting-units knowledge)

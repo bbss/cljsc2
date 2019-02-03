@@ -4,10 +4,11 @@
    [hara.string.case :as casing]
    [clojure.spec.alpha :as spec]
    [environ.core :refer [env]]
-   [lucid.mind :refer [.?]]))
+   [lucid.mind :refer [.?]])
+  (:gen-class))
 
 (def proto-parser
-  (insta/parser (env :proto-grammar)
+  (insta/parser (clojure.java.io/resource "proto.ebnf")
                 :auto-whitespace
                 :standard))
 
@@ -209,7 +210,7 @@
   (into {}
         (filter
          (fn [[k v]] (:spec v))
-         (read-protos (str (env :proto-dir) "/")
+         (read-protos (clojure.java.io/resource "s2clientprotocol/")
                       "sc2api"
                       {}
                       ))))

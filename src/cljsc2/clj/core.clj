@@ -8,9 +8,9 @@
    [me.raynes.conch.low-level :as sh]
    [flatland.protobuf.core :refer [protodef protobuf-dump protodef? protobuf-load]]
    [cljsc2.clj.proto :refer [ugly-memo-make-protobuf]]
-   [cljsc2.clj.rendering :refer [mp4-file-path->markdown-html run-result->mp4-file-path]]
-   [taoensso.timbre :as timbre]
-   ))
+   ;[cljsc2.clj.rendering :refer [mp4-file-path->markdown-html run-result->mp4-file-path]]
+   [taoensso.timbre :as timbre]))
+
 
 (defn to-byte [it]
   (.toByteArray it))
@@ -83,7 +83,7 @@
   (protodef SC2APIProtocol.Sc2Api$Request))
 
 (defn get-available-maps
-  ([] (get-available-maps "/Applications/StarCraft II/Maps") )
+  ([] (get-available-maps "/Applications/StarCraft II/Maps"))
   ([path]
    (->> (file-seq (clojure.java.io/file path))
         (map #(.getPath %))
@@ -246,9 +246,9 @@
         :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
         {:width 24
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-         }
-        }}}))))
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}}}}))))
+
+
 
 
 (defn load-simple-map
@@ -281,14 +281,14 @@
         :feature-layer #:SC2APIProtocol.sc2api$SpatialCameraSetup
         {:width 24
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-         }
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}
+
         :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
         {:width 24
          :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}
-         }
-        }}}))))
+         :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}}}}))))
+
+
 
 (defn load-map
   ([connection]
@@ -306,8 +306,8 @@
               :render #:SC2APIProtocol.sc2api$SpatialCameraSetup
               {:width 24
                :resolution #:SC2APIProtocol.common$Size2DI{:x 84 :y 84}
-               :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}
-              }))
+               :minimap-resolution #:SC2APIProtocol.common$Size2DI{:x 64 :y 64}}}))
+
   ([connection {:keys [map-config/path] :as config} player-setups interface-options]
    (send-request-and-get-response-message
     connection
@@ -415,6 +415,6 @@
                                             :game-loop (:game-loop actual-observation)
                                             :ran-for-steps (* stepsize @loops)
                                             :run-for-steps run-for-steps}])))))]
-     (if to-markdown
-       (mp4-file-path->markdown-html (run-result->mp4-file-path run-result (get-port connection)))
-       run-result))))
+     ;(if to-markdown
+     ;  (mp4-file-path->markdown-html (run-result->mp4-file-path run-result (get-port connection)))
+       run-result)))

@@ -5,8 +5,7 @@
             [datascript.core :as ds]
             [datascript.transit :refer [read-transit-str write-transit-str]]
             [taoensso.nippy :as nippy]
-            [clojure.spec.alpha :as spec]
-            ))
+            [clojure.spec.alpha :as spec]))
 
 (def schema
   {:unit/type {:db/cardinality :db.cardinality/many

@@ -2,7 +2,7 @@
   (:require
    [manifold.stream :as s :refer [stream]]
    [clojure.data :refer [diff]]
-   [clojupyter.misc.display :as display]
+   ;[clojupyter.misc.display :as display]
    [clojure.spec.alpha :as spec]
    [telegenic.core :refer [encode]]
    [byte-transforms :as byte-tf]
@@ -25,8 +25,8 @@
                                                               (int-array [0 1 2])
                                                               nil)]
     (.setData bi raster)
-    bi
-    ))
+    bi))
+
 
 (defn observations->mp4
   ([unique observations]
@@ -43,20 +43,20 @@
     (byte-streams/to-byte-array (clojure.java.io/File. file-path))
     :base64 {:url-safe? false})))
 
-(defn run-result->mp4-file-path
-  ([run-result]
-   (run-result->mp4-file-path run-result 5000))
-  ([run-result port]
-   (->> run-result
-        first
-        persistent!
-        ((partial observations->mp4 port))
-        :filename)))
-
-(defn mp4-file-path->markdown-html [file-path]
-  (display/make-markdown (str "
-<video
-autoplay
-loop
-src=\"" file-path "\"
-controls></video>")))
+;(defn run-result->mp4-file-path
+;  ([run-result]
+;   (run-result->mp4-file-path run-result 5000))
+;  ([run-result port]
+;   (->> run-result
+;        first
+;        persistent!
+;        ((partial observations->mp4 port))
+;        :filename)))
+;
+;(defn mp4-file-path->markdown-html [file-path]
+;  (display/make-markdown (str "
+;<video
+;autoplay
+;loop
+;src=\"" file-path "\"
+;controls></video>")))
